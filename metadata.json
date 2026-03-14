@@ -1,0 +1,5 @@
+{
+  "name": "Gridder Evolution",
+  "description": "A retro-style arcade game inspired by C64/Amiga classics. Capture boxes, avoid enemies, and survive the evolving grid!",
+  "requestFramePermissions": []
+}
