@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { GameEngine, Dir } from './game/engine';
 import { audio } from './game/audio';
 import { getHighScores, saveHighScore, translations, Language, HighScore } from './game/meta';
+import { Volume2, VolumeX, Maximize, Minimize, FastForward, Pause, Play, Music, ChevronDown, ChevronUp, Eye } from 'lucide-react';
 
 export default function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -15,8 +16,30 @@ export default function App() {
   const [colorblind, setColorblind] = useState(false);
   const [playerName, setPlayerName] = useState('');
   const [highScores, setHighScores] = useState<HighScore[]>([]);
+  const [startLevel, setStartLevel] = useState(1);
+  
+  const [musicVol, setMusicVol] = useState(0.5);
+  const [musicMuted, setMusicMuted] = useState(false);
+  const [musicTempo, setMusicTempo] = useState(1.0);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [currentTrackIdx, setCurrentTrackIdx] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+  const [playlistVisible, setPlaylistVisible] = useState(true);
 
   const t = translations[lang];
+  const playlist = audio.getPlaylist();
+
+  const handleTrackChange = (idx: number) => {
+    setCurrentTrackIdx(idx);
+    audio.setTrack(idx);
+  };
+
+  const handlePause = () => {
+    if (engineRef.current) {
+      engineRef.current.togglePause();
+      setIsPaused(engineRef.current.paused);
+    }
+  };
 
   useEffect(() => {
     if (!engineRef.current) return;
@@ -102,10 +125,17 @@ export default function App() {
       const eng = engineRef.current;
       
       if (eng.state === 'playing') {
-        if (e.key === 'ArrowUp' || e.key === 'w') eng.setDir('up');
-        if (e.key === 'ArrowDown' || e.key === 's') eng.setDir('down');
-        if (e.key === 'ArrowLeft' || e.key === 'a') eng.setDir('left');
-        if (e.key === 'ArrowRight' || e.key === 'd') eng.setDir('right');
+        const key = e.key.toLowerCase();
+        if (key === 'p') {
+          handlePause();
+          return;
+        }
+        if (eng.paused) return;
+
+        if (key === 'arrowup' || key === 'w') eng.setDir('up');
+        if (key === 'arrowdown' || key === 's') eng.setDir('down');
+        if (key === 'arrowleft' || key === 'a') eng.setDir('left');
+        if (key === 'arrowright' || key === 'd') eng.setDir('right');
       } else if (eng.state === 'title' && e.key === 'Enter') {
         startGame();
       }
@@ -122,26 +152,36 @@ export default function App() {
     touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
   };
   
-  const handleTouchEnd = (e: React.TouchEvent) => {
+  const handleTouchMove = (e: React.TouchEvent) => {
     if (!touchStart.current || !engineRef.current) return;
     const eng = engineRef.current;
     if (eng.state !== 'playing') return;
 
-    const touchEnd = { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
-    const dx = touchEnd.x - touchStart.current.x;
-    const dy = touchEnd.y - touchStart.current.y;
+    const touchCurrent = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    const dx = touchCurrent.x - touchStart.current.x;
+    const dy = touchCurrent.y - touchStart.current.y;
     
-    if (Math.abs(dx) > Math.abs(dy)) {
-      if (Math.abs(dx) > 30) eng.setDir(dx > 0 ? 'right' : 'left');
-    } else {
-      if (Math.abs(dy) > 30) eng.setDir(dy > 0 ? 'down' : 'up');
+    if (Math.abs(dx) > 30 || Math.abs(dy) > 30) {
+      if (Math.abs(dx) > Math.abs(dy)) {
+        eng.setDir(dx > 0 ? 'right' : 'left');
+      } else {
+        eng.setDir(dy > 0 ? 'down' : 'up');
+      }
+      // Reset touch start to allow continuous turning without lifting finger
+      touchStart.current = touchCurrent;
     }
+  };
+
+  const handleTouchEnd = () => {
     touchStart.current = null;
   };
 
   const startGame = () => {
     audio.init();
-    engineRef.current?.start();
+    audio.musicVolume = musicVol;
+    audio.musicMuted = musicMuted;
+    audio.musicTempo = musicTempo;
+    engineRef.current?.start(startLevel);
   };
 
   const submitScore = (e: React.FormEvent) => {
@@ -153,27 +193,82 @@ export default function App() {
     }
   };
 
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(err => {
+        console.error(`Error attempting to enable fullscreen: ${err.message}`);
+      });
+    } else {
+      document.exitFullscreen();
+    }
+  };
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
+  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const vol = parseFloat(e.target.value);
+    setMusicVol(vol);
+    audio.musicVolume = vol;
+  };
+
+  const handleTempoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const tempo = parseFloat(e.target.value);
+    setMusicTempo(tempo);
+    audio.musicTempo = tempo;
+  };
+
+  const toggleMute = () => {
+    const newMuted = !musicMuted;
+    setMusicMuted(newMuted);
+    audio.musicMuted = newMuted;
+  };
+
+  useEffect(() => {
+    if (gameState === 'title') {
+      audio.stopMusic();
+      audio.startMusic(false, 1); // Play menu music (index 1)
+    } else if (gameState === 'gameover') {
+      // Delay menu music so death sound can play
+      const timer = setTimeout(() => {
+        audio.stopMusic();
+        audio.startMusic(false, 1);
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [gameState]);
+
   return (
-    <div className="relative w-full h-screen bg-black overflow-hidden select-none"
+    <div className="relative w-full h-screen bg-black overflow-hidden select-none touch-none"
          style={{ fontFamily: "'Press Start 2P', monospace" }}
-         onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
+         onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}>
       
       {/* CRT Overlay */}
       <div className="crt-overlay absolute inset-0 pointer-events-none"></div>
       <div className="scanline"></div>
 
       {/* Game Canvas */}
-      <canvas ref={canvasRef} className="block w-full h-full" />
+      <canvas ref={canvasRef} className="block w-full h-full object-contain" />
 
       {/* UI Overlay */}
       <div className="absolute inset-0 pointer-events-none flex flex-col justify-between p-4 text-[#0088FF]">
         
         {/* HUD */}
         {gameState === 'playing' && (
-          <div className="flex justify-between text-sm md:text-xl font-bold drop-shadow-[0_0_5px_rgba(0,136,255,0.8)]">
-            <div>{t.score}: {score}</div>
-            <div>{t.lives}: {lives}</div>
-            <div>{t.level} {level}</div>
+          <div className="flex justify-between items-center text-sm md:text-xl font-bold drop-shadow-[0_0_5px_rgba(0,136,255,0.8)]">
+            <div className="flex gap-4">
+              <div>{t.score}: {score}</div>
+              <div>{t.lives}: {lives}</div>
+              <div>{t.level} {level}</div>
+            </div>
+            <button onClick={handlePause} className="pointer-events-auto text-[#0088FF] hover:text-white transition-colors" title="Pause (P)">
+              {isPaused ? <Play size={32} /> : <Pause size={32} />}
+            </button>
           </div>
         )}
 
@@ -184,6 +279,67 @@ export default function App() {
           </div>
         )}
 
+        {/* Settings Controls (Bottom Right) */}
+        <div className="absolute bottom-4 right-4 flex flex-col items-end gap-2 pointer-events-auto z-50">
+          {/* Track Selector & Sliders (only show if not muted) */}
+          {!musicMuted && playlistVisible && (
+            <div className="flex flex-col gap-3 bg-black/50 p-3 rounded border border-[#0088FF]/30 text-xs">
+              {/* Track Select */}
+              <div className="flex flex-col gap-2 mb-1">
+                <span className="text-[10px] text-[#0088FF]/70 uppercase tracking-tighter">Playlist</span>
+                <div className="flex flex-col gap-1">
+                  {playlist.map((name, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => handleTrackChange(idx)}
+                      className={`text-left px-2 py-1 rounded transition-colors ${
+                        currentTrackIdx === idx 
+                          ? 'bg-[#0088FF] text-black font-bold' 
+                          : 'hover:bg-[#0088FF]/20 text-[#0088FF]'
+                      }`}
+                    >
+                      {name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <Volume2 size={16} />
+                <input 
+                  type="range" min="0" max="1" step="0.05" 
+                  value={musicVol} onChange={handleVolumeChange}
+                  className="w-24 md:w-32 h-2 bg-[#0088FF]/30 rounded-lg appearance-none cursor-pointer"
+                />
+              </div>
+              <div className="flex items-center gap-3">
+                <FastForward size={16} />
+                <input 
+                  type="range" min="0.5" max="2" step="0.1" 
+                  value={musicTempo} onChange={handleTempoChange}
+                  className="w-24 md:w-32 h-2 bg-[#0088FF]/30 rounded-lg appearance-none cursor-pointer"
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="flex items-center gap-4 bg-black/50 p-3 rounded border border-[#0088FF]/30">
+            <button onClick={() => setPlaylistVisible(!playlistVisible)} className="text-[#0088FF] hover:text-white transition-colors flex items-center gap-1" title="Toggle Playlist">
+              <Music size={24} />
+              {playlistVisible ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
+            </button>
+            <button onClick={toggleFullscreen} className="text-[#0088FF] hover:text-white transition-colors" title="Fullscreen">
+              {isFullscreen ? <Minimize size={24} /> : <Maximize size={24} />}
+            </button>
+            <button onClick={toggleMute} className="text-[#0088FF] hover:text-white transition-colors" title="Mute Music">
+              {musicMuted ? <VolumeX size={24} /> : <Volume2 size={24} />}
+            </button>
+            <button onClick={() => setColorblind(!colorblind)} className={`${colorblind ? 'text-[#00CC55]' : 'text-[#0088FF] hover:text-white'} transition-colors`} title={t.colorblind}>
+              <Eye size={24} />
+            </button>
+          </div>
+        </div>
+
         {/* Title Screen */}
         {gameState === 'title' && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 pointer-events-auto">
@@ -193,10 +349,22 @@ export default function App() {
             
             <button 
               onClick={startGame}
-              className="px-8 py-4 mb-12 border-4 border-[#0088FF] text-[#0088FF] text-xl font-bold hover:bg-[#0088FF] hover:text-black transition-colors animate-pulse-text"
+              className="px-8 py-4 mb-8 border-4 border-[#0088FF] text-[#0088FF] text-xl font-bold hover:bg-[#0088FF] hover:text-black transition-colors animate-pulse-text"
             >
               {t.start}
             </button>
+
+            <div className="mb-12 flex flex-col items-center">
+              <label className="text-[#AAFFEE] text-sm mb-2">{t.testLevel}</label>
+              <input
+                type="number"
+                min="1"
+                max="100"
+                value={startLevel}
+                onChange={(e) => setStartLevel(Math.max(1, parseInt(e.target.value) || 1))}
+                className="bg-transparent border-2 border-[#0088FF] text-center text-xl text-white w-24 p-2 outline-none"
+              />
+            </div>
 
             <div className="text-center mb-8">
               <h2 className="text-xl text-[#AAFFEE] mb-4">{t.highScores}</h2>
@@ -214,12 +382,6 @@ export default function App() {
             >
               {t.language}
             </button>
-            <button 
-              onClick={() => setColorblind(!colorblind)}
-              className={`absolute top-16 right-4 px-4 py-2 border-2 text-xs ${colorblind ? 'border-[#00CC55] text-[#00CC55]' : 'border-gray-500 text-gray-400 hover:text-white'}`}
-            >
-              {t.colorblind}
-            </button>
             
             <div className="absolute bottom-4 text-xs text-gray-500 text-center w-full">
               {t.controls}
@@ -235,20 +397,32 @@ export default function App() {
             </h2>
             <div className="text-2xl text-[#EEEE77] mb-12">{t.score}: {score}</div>
             
-            <form onSubmit={submitScore} className="flex flex-col items-center">
-              <label className="text-sm md:text-base mb-4 text-[#AAFFEE]">{t.enterName}</label>
-              <input 
-                type="text" 
-                maxLength={3}
-                value={playerName}
-                onChange={e => setPlayerName(e.target.value.toUpperCase())}
-                className="bg-transparent border-b-4 border-[#AAFFEE] text-center text-3xl text-white w-32 outline-none mb-8 uppercase"
-                autoFocus
-              />
-              <button type="submit" className="px-8 py-4 border-4 border-[#AAFFEE] text-[#AAFFEE] text-xl font-bold hover:bg-[#AAFFEE] hover:text-black transition-colors">
-                OK
-              </button>
-            </form>
+            {startLevel > 1 ? (
+              <div className="flex flex-col items-center">
+                <p className="text-[#FF7777] mb-8 text-xl">{t.testModeNoScore}</p>
+                <button 
+                  onClick={() => engineRef.current?.init()} 
+                  className="px-8 py-4 border-4 border-[#AAFFEE] text-[#AAFFEE] text-xl font-bold hover:bg-[#AAFFEE] hover:text-black transition-colors"
+                >
+                  {t.returnToTitle}
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={submitScore} className="flex flex-col items-center">
+                <label className="text-sm md:text-base mb-4 text-[#AAFFEE]">{t.enterName}</label>
+                <input 
+                  type="text" 
+                  maxLength={3}
+                  value={playerName}
+                  onChange={e => setPlayerName(e.target.value.toUpperCase())}
+                  className="bg-transparent border-b-4 border-[#AAFFEE] text-center text-3xl text-white w-32 outline-none mb-8 uppercase"
+                  autoFocus
+                />
+                <button type="submit" className="px-8 py-4 border-4 border-[#AAFFEE] text-[#AAFFEE] text-xl font-bold hover:bg-[#AAFFEE] hover:text-black transition-colors">
+                  OK
+                </button>
+              </form>
+            )}
           </div>
         )}
 

@@ -19,10 +19,7 @@ export interface Cell {
   edges: Edge[];
   captured: boolean;
   color: string;
-  cx: number;
-  cy: number;
-  w: number;
-  h: number;
+  rects: {x: number, y: number}[];
 }
 
 export interface Particle {
@@ -48,11 +45,21 @@ export interface Enemy {
   y: number;
   startX: number;
   startY: number;
-  type: 'spark' | 'stalker' | 'boss';
+  type: 'spark' | 'stalker' | 'boss' | 'miniboss' | 'projectile' | 'web';
+  bossType?: 'classic' | 'dasher' | 'splitter' | 'turret' | 'teleporter' | 'weaver';
+  bossState?: 'moving' | 'charging' | 'dashing' | 'warning' | 'splitting' | 'split' | 'merging';
   dir: Dir;
+  vx?: number;
+  vy?: number;
   speed: number;
-  state: 'moving' | 'frozen';
+  state: 'moving' | 'frozen' | 'returning';
   freezeTimer: number;
+  parent?: Enemy;
+  targetX?: number;
+  targetY?: number;
+  timer?: number;
+  life?: number;
+  size?: number;
 }
 
 export class GameEngine {
@@ -63,6 +70,7 @@ export class GameEngine {
   level = 1;
   score = 0;
   lives = 3;
+  paused = false;
   state: 'title' | 'playing' | 'gameover' | 'leveltransition' = 'title';
   
   nodes: Point[] = [];
@@ -156,17 +164,48 @@ export class GameEngine {
   init() {
     this.state = 'title';
     if (this.onStateChange) this.onStateChange(this.state);
+    
+    // Spawn title bosses
+    this.enemies = [];
+    const types = ['classic', 'dasher', 'splitter', 'turret', 'teleporter', 'weaver'];
+    for (let i = 0; i < 3; i++) {
+      this.enemies.push({
+        x: Math.random() * (this.width / this.gridSize),
+        y: Math.random() * (this.height / this.gridSize),
+        startX: 0, startY: 0,
+        type: 'boss',
+        bossType: types[Math.floor(Math.random() * types.length)] as any,
+        bossState: 'moving',
+        dir: 'idle',
+        speed: 2 + Math.random() * 2,
+        state: 'moving',
+        freezeTimer: 0,
+        vx: (Math.random() - 0.5) * 4,
+        vy: (Math.random() - 0.5) * 4,
+        size: 15 + Math.random() * 10
+      });
+    }
   }
 
-  start() {
-    this.level = 1;
+  togglePause() {
+    if (this.state !== 'playing') return;
+    this.paused = !this.paused;
+    if (this.paused) {
+      audio.stopMusic();
+    } else {
+      audio.startMusic(this.levelType === 'boss');
+    }
+  }
+
+  start(startLevel: number = 1) {
+    this.state = 'playing';
+    this.level = startLevel;
     this.score = 0;
     this.lives = 3;
     this.player.shield = false;
     if (this.onScoreChange) this.onScoreChange(this.score);
     if (this.onLivesChange) this.onLivesChange(this.lives);
     this.loadLevel();
-    this.state = 'playing';
     if (this.onStateChange) this.onStateChange(this.state);
     audio.playStart();
   }
@@ -178,6 +217,8 @@ export class GameEngine {
     this.enemies = [];
     this.particles = [];
     this.perks = [];
+    
+    audio.stopMusic();
     
     this.player.dir = 'idle';
     this.player.nextDir = 'idle';
@@ -258,33 +299,35 @@ export class GameEngine {
           edges: [eTop, eBottom, eLeft, eRight],
           captured: false,
           color: this.colors.captured,
-          cx: x, cy: y, w: 1, h: 1
+          rects: [{x, y}]
         });
       }
     }
 
     // Add Boss cell if boss level
     if (isBoss) {
-      const pTL = { x: 1, y: 1 };
-      const pTR = { x: cols - 1, y: 1 };
-      const pBL = { x: 1, y: rows - 1 };
-      const pBR = { x: cols - 1, y: rows - 1 };
-      
-      const eTop = addEdge(pTL, pTR);
-      const eBottom = addEdge(pBL, pBR);
-      const eLeft = addEdge(pTL, pBL);
-      const eRight = addEdge(pTR, pBR);
-      
-      this.cells.push({
-        id: `boss`,
-        edges: [eTop, eBottom, eLeft, eRight],
-        captured: false,
-        color: '#880000',
-        cx: 1, cy: 1, w: cols - 2, h: rows - 2
-      });
-      
+      let bossType = 'classic';
+      if (this.level === 10) bossType = 'dasher';
+      else if (this.level === 15) bossType = 'splitter';
+      else if (this.level === 20) bossType = 'turret';
+      else if (this.level === 25) bossType = 'teleporter';
+      else if (this.level >= 30) {
+        const types = ['weaver', 'dasher', 'splitter', 'turret', 'teleporter'];
+        bossType = types[Math.floor(this.level / 5) % types.length];
+      }
+
+      let bossSize = 15;
+      if (bossType === 'weaver') bossSize = 18;
+      else if (bossType === 'dasher') bossSize = 12;
+      else if (bossType === 'splitter') bossSize = 20;
+      else if (bossType === 'turret') bossSize = 16;
+      else if (bossType === 'teleporter') bossSize = 14;
+
       this.enemies.push({
-        x: cols / 2, y: rows / 2, startX: cols / 2, startY: rows / 2, type: 'boss', dir: 'idle', speed: 1, state: 'moving', freezeTimer: 0
+        x: cols / 2, y: rows / 2, startX: cols / 2, startY: rows / 2, 
+        type: 'boss', bossType: bossType as any, bossState: 'moving',
+        dir: 'idle', speed: bossType === 'dasher' ? 1.5 : 1, state: 'moving', 
+        freezeTimer: 0, timer: 0, size: bossSize
       });
     }
 
@@ -293,7 +336,7 @@ export class GameEngine {
     this.player.y = 0;
 
     // Add enemies
-    const numEnemies = Math.min(1 + Math.floor(this.level / 2), 8);
+    const numEnemies = Math.min(1 + Math.floor(this.level / 2), 6); // Capped at 6
     for (let i = 0; i < numEnemies; i++) {
       let ex = cols;
       let ey = rows;
@@ -305,7 +348,7 @@ export class GameEngine {
         startX: ex, startY: ey,
         type: (this.level > 2 && Math.random() > 0.7) ? 'stalker' : 'spark',
         dir: 'up',
-        speed: 0.7 + (this.level * 0.05), // Slower scaling
+        speed: Math.min(1.2, 0.7 + (this.level * 0.03)), // Capped below player speed (1.4)
         state: 'moving',
         freezeTimer: 0
       });
@@ -316,6 +359,10 @@ export class GameEngine {
       for (let i = 0; i < mutations; i++) {
         this.mutateGrid(true); // silent mutation
       }
+    }
+    
+    if (this.state !== 'title') {
+      audio.startMusic(this.levelType === 'boss');
     }
     
     if (this.onLevelChange) this.onLevelChange(this.level);
@@ -347,6 +394,18 @@ export class GameEngine {
   }
 
   update(dt: number) {
+    if (this.paused) return;
+    if (this.state === 'title') {
+      for (const enemy of this.enemies) {
+        enemy.x += (enemy.vx || 0) * dt;
+        enemy.y += (enemy.vy || 0) * dt;
+        if (enemy.x < 0) { enemy.x = 0; enemy.vx = Math.abs(enemy.vx!); }
+        if (enemy.x > this.width / this.gridSize) { enemy.x = this.width / this.gridSize; enemy.vx = -Math.abs(enemy.vx!); }
+        if (enemy.y < 0) { enemy.y = 0; enemy.vy = Math.abs(enemy.vy!); }
+        if (enemy.y > this.height / this.gridSize) { enemy.y = this.height / this.gridSize; enemy.vy = -Math.abs(enemy.vy!); }
+      }
+      return;
+    }
     if (this.state !== 'playing') return;
 
     // Timers
@@ -409,13 +468,237 @@ export class GameEngine {
       }
       
       if (enemy.type === 'boss') {
-        // Boss logic: slowly move towards player
-        const dx = this.player.x - enemy.x;
-        const dy = this.player.y - enemy.y;
-        const dist = Math.sqrt(dx*dx + dy*dy);
-        if (dist > 0) {
-           enemy.x += (dx / dist) * enemy.speed * 0.5 * dt;
-           enemy.y += (dy / dist) * enemy.speed * 0.5 * dt;
+        if (!enemy.timer) enemy.timer = 0;
+        enemy.timer += dt;
+
+        if (enemy.bossType === 'classic') {
+          const dx = this.player.x - enemy.x;
+          const dy = this.player.y - enemy.y;
+          const dist = Math.sqrt(dx*dx + dy*dy);
+          if (dist > 0) {
+             enemy.x += (dx / dist) * enemy.speed * 0.5 * dt;
+             enemy.y += (dy / dist) * enemy.speed * 0.5 * dt;
+          }
+          
+          // Miniboss spawning logic (only on harder levels, e.g., level >= 10)
+          if (this.level >= 10 && Math.random() < 0.01) {
+            // Spawn miniboss rarely for classic boss on high levels
+            const angle = Math.random() * Math.PI * 2;
+            const spawnDist = 3 + Math.random() * 3;
+            this.enemies.push({
+              x: enemy.x, y: enemy.y, startX: enemy.x, startY: enemy.y,
+              type: 'miniboss', dir: 'idle', speed: Math.min(1.2, enemy.speed * 1.5), state: 'moving',
+              freezeTimer: 0, parent: enemy,
+              targetX: enemy.x + Math.cos(angle) * spawnDist,
+              targetY: enemy.y + Math.sin(angle) * spawnDist,
+              timer: 2
+            });
+          }
+        } 
+        else if (enemy.bossType === 'dasher') {
+          if (enemy.bossState === 'moving') {
+            const dx = this.player.x - enemy.x;
+            const dy = this.player.y - enemy.y;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            if (dist > 0) {
+               enemy.x += (dx / dist) * enemy.speed * 0.4 * dt;
+               enemy.y += (dy / dist) * enemy.speed * 0.4 * dt;
+            }
+            if (enemy.timer > 3) {
+              enemy.bossState = 'charging';
+              enemy.timer = 0;
+              enemy.targetX = this.player.x;
+              enemy.targetY = this.player.y;
+            }
+          } else if (enemy.bossState === 'charging') {
+            if (enemy.timer > 1) {
+              enemy.bossState = 'dashing';
+              enemy.timer = 0;
+            }
+          } else if (enemy.bossState === 'dashing') {
+            const dx = enemy.targetX! - enemy.x;
+            const dy = enemy.targetY! - enemy.y;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            if (dist > 0.5) {
+               enemy.x += (dx / dist) * enemy.speed * 5 * dt;
+               enemy.y += (dy / dist) * enemy.speed * 5 * dt;
+            } else {
+              enemy.bossState = 'moving';
+              enemy.timer = 0;
+            }
+          }
+        }
+        else if (enemy.bossType === 'splitter') {
+          if (enemy.bossState === 'moving') {
+            const dx = this.player.x - enemy.x;
+            const dy = this.player.y - enemy.y;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            if (dist > 0) {
+               enemy.x += (dx / dist) * enemy.speed * 0.6 * dt;
+               enemy.y += (dy / dist) * enemy.speed * 0.6 * dt;
+            }
+            if (enemy.timer > 6 && !enemy.parent) {
+              enemy.bossState = 'splitting';
+              enemy.timer = 0;
+            }
+          } else if (enemy.bossState === 'splitting') {
+            // Shake effect in draw
+            if (enemy.timer > 2) {
+              enemy.bossState = 'split';
+              enemy.timer = 0;
+              enemy.size = 8; // shrink main body
+              // Spawn 3 clones
+              for (let i = 0; i < 3; i++) {
+                const angle = (i / 3) * Math.PI * 2;
+                this.enemies.push({
+                  ...enemy,
+                  x: enemy.x + Math.cos(angle) * 2,
+                  y: enemy.y + Math.sin(angle) * 2,
+                  speed: enemy.speed * 1.1,
+                  timer: 0,
+                  bossState: 'split',
+                  parent: enemy
+                });
+              }
+            }
+          } else if (enemy.bossState === 'split') {
+            const dx = this.player.x - enemy.x;
+            const dy = this.player.y - enemy.y;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            if (dist > 0) {
+               enemy.x += (dx / dist) * enemy.speed * 1.1 * dt; // Faster when split
+               enemy.y += (dy / dist) * enemy.speed * 1.1 * dt;
+            }
+            if (enemy.timer > 8) {
+              enemy.bossState = 'merging';
+              enemy.timer = 0;
+            }
+          } else if (enemy.bossState === 'merging') {
+            const target = enemy.parent;
+            if (target && target.freezeTimer !== -1) {
+              const dx = target.x - enemy.x;
+              const dy = target.y - enemy.y;
+              const dist = Math.sqrt(dx*dx + dy*dy);
+              if (dist > 0.5) {
+                 enemy.x += (dx / dist) * enemy.speed * 3 * dt; // Fast merge
+                 enemy.y += (dy / dist) * enemy.speed * 3 * dt;
+              } else {
+                enemy.freezeTimer = -1; // remove clone
+                target.size = Math.min(20, target.size! + 4); // grow parent back
+              }
+            } else {
+              // I am the parent, wait for clones to merge
+              if (enemy.timer > 3) {
+                enemy.bossState = 'moving';
+                enemy.timer = 0;
+                enemy.size = 20; // restore full size
+              }
+            }
+          }
+        }
+        else if (enemy.bossType === 'turret') {
+          const centerX = this.width / this.gridSize / 2;
+          const centerY = this.height / this.gridSize / 2;
+          const dx = centerX - enemy.x;
+          const dy = centerY - enemy.y;
+          const dist = Math.sqrt(dx*dx + dy*dy);
+          if (dist > 1) {
+             enemy.x += (dx / dist) * enemy.speed * 0.2 * dt;
+             enemy.y += (dy / dist) * enemy.speed * 0.2 * dt;
+          }
+          if (enemy.timer > 2.5) {
+            enemy.timer = 0;
+            for (let i = 0; i < 8; i++) {
+              const angle = (i / 8) * Math.PI * 2;
+              this.enemies.push({
+                x: enemy.x, y: enemy.y, startX: enemy.x, startY: enemy.y,
+                type: 'projectile', dir: 'idle', speed: 4, state: 'moving', freezeTimer: 0,
+                vx: Math.cos(angle), vy: Math.sin(angle), size: 4
+              });
+            }
+          }
+        }
+        else if (enemy.bossType === 'teleporter') {
+          if (enemy.bossState === 'moving') {
+            const dx = this.player.x - enemy.x;
+            const dy = this.player.y - enemy.y;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            if (dist > 0) {
+               enemy.x += (dx / dist) * enemy.speed * 0.3 * dt;
+               enemy.y += (dy / dist) * enemy.speed * 0.3 * dt;
+            }
+            if (enemy.timer > 5) {
+              enemy.bossState = 'warning';
+              enemy.timer = 0;
+              enemy.targetX = this.player.x;
+              enemy.targetY = this.player.y;
+            }
+          } else if (enemy.bossState === 'warning') {
+            if (enemy.timer > 1.5) {
+              enemy.x = enemy.targetX!;
+              enemy.y = enemy.targetY!;
+              enemy.bossState = 'moving';
+              enemy.timer = 0;
+            }
+          }
+        }
+        else if (enemy.bossType === 'weaver') {
+          const dx = this.player.x - enemy.x;
+          const dy = this.player.y - enemy.y;
+          const dist = Math.sqrt(dx*dx + dy*dy);
+          if (dist > 0) {
+             enemy.x += (dx / dist) * enemy.speed * 0.7 * dt;
+             enemy.y += (dy / dist) * enemy.speed * 0.7 * dt;
+          }
+          if (enemy.timer > 0.8) {
+            enemy.timer = 0;
+            this.enemies.push({
+              x: enemy.x, y: enemy.y, startX: enemy.x, startY: enemy.y,
+              type: 'web', dir: 'idle', speed: 0, state: 'moving', freezeTimer: 0,
+              life: 6, size: 8
+            });
+          }
+        }
+      } else if (enemy.type === 'projectile') {
+        enemy.x += enemy.vx! * enemy.speed * dt;
+        enemy.y += enemy.vy! * enemy.speed * dt;
+        if (enemy.x < 0 || enemy.x > this.width/this.gridSize || enemy.y < 0 || enemy.y > this.height/this.gridSize) {
+          enemy.freezeTimer = -1; // mark for removal
+        }
+      } else if (enemy.type === 'web') {
+        enemy.life! -= dt;
+        if (enemy.life! <= 0) enemy.freezeTimer = -1;
+      } else if (enemy.type === 'miniboss') {
+        if (enemy.state === 'moving') {
+          // Move towards target
+          const dx = enemy.targetX! - enemy.x;
+          const dy = enemy.targetY! - enemy.y;
+          const dist = Math.sqrt(dx*dx + dy*dy);
+          if (dist > 0.1) {
+            enemy.x += (dx / dist) * enemy.speed * dt;
+            enemy.y += (dy / dist) * enemy.speed * dt;
+          } else {
+            enemy.timer! -= dt;
+            if (enemy.timer! <= 0) {
+              enemy.state = 'returning';
+            }
+          }
+        } else if (enemy.state === 'returning') {
+          // Move towards parent
+          if (enemy.parent) {
+            const dx = enemy.parent.x - enemy.x;
+            const dy = enemy.parent.y - enemy.y;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            if (dist > 0.5) {
+              enemy.x += (dx / dist) * enemy.speed * dt;
+              enemy.y += (dy / dist) * enemy.speed * dt;
+            } else {
+              // Merge back (remove from array)
+              enemy.freezeTimer = -1; // mark for removal
+            }
+          } else {
+            enemy.freezeTimer = -1;
+          }
         }
       } else {
         this.moveEntity(enemy, enemy.speed * dt, false);
@@ -423,8 +706,16 @@ export class GameEngine {
 
       // Collision (pixel-based for fairer hitboxes)
       const playerRadius = 8;
-      const enemyRadius = enemy.type === 'boss' ? 15 : 8;
+      let enemyRadius = 8;
+      if (enemy.type === 'boss') enemyRadius = enemy.size || 15;
+      else if (enemy.type === 'miniboss') enemyRadius = 6;
+      else if (enemy.type === 'projectile') enemyRadius = 4;
+      else if (enemy.type === 'web') enemyRadius = 8;
+      
       const hitDistPixels = playerRadius + enemyRadius - 2; // -2 for a tiny bit of leniency
+      
+      // Don't collide with teleporter while it's warning
+      if (enemy.type === 'boss' && enemy.bossState === 'warning') continue;
       
       const dxPixels = Math.abs(this.player.x - enemy.x) * this.gridSize;
       const dyPixels = Math.abs(this.player.y - enemy.y) * this.gridSize;
@@ -436,7 +727,7 @@ export class GameEngine {
             this.player.invincible = 2;
             enemy.x = enemy.startX; // reset enemy
             enemy.y = enemy.startY;
-            audio.playExplosion();
+            audio.playHit();
             this.spawnParticles(this.player.x, this.player.y, this.colors.perkShield);
           } else {
             this.playerDeath();
@@ -453,17 +744,21 @@ export class GameEngine {
       p.life -= dt;
       if (p.life <= 0) this.particles.splice(i, 1);
     }
+    
+    // Remove merged minibosses
+    this.enemies = this.enemies.filter(e => e.freezeTimer !== -1);
   }
 
   playerDeath() {
-    audio.playExplosion();
     this.spawnParticles(this.player.x, this.player.y, this.colors.player);
     this.lives--;
     if (this.onLivesChange) this.onLivesChange(this.lives);
     
     if (this.lives <= 0) {
+      audio.playDeath();
       this.gameOver();
     } else {
+      audio.playHit();
       // Reset player position and give invincibility
       this.player.x = 0;
       this.player.y = 0;
@@ -561,7 +856,7 @@ export class GameEngine {
     }
   }
 
-  mutateGrid() {
+  mutateGrid(silent: boolean = false) {
     const candidateEdges = Array.from(this.edges.values()).filter(e => !e.traversed);
     if (candidateEdges.length === 0) return;
 
@@ -588,33 +883,31 @@ export class GameEngine {
       if (sharedCells.length === 2) {
         const [c1, c2] = sharedCells;
         
-        this.edges.delete(edge.id);
+        const sharedEdges = c1.edges.filter(e1 => c2.edges.some(e2 => e1.id === e2.id));
+        for (const se of sharedEdges) {
+          this.edges.delete(se.id);
+        }
+        
         this.cells = this.cells.filter(c => c.id !== c1.id && c.id !== c2.id);
         
-        const newEdges = [...c1.edges, ...c2.edges].filter(e => e.id !== edge.id);
+        const newEdges = [...c1.edges, ...c2.edges].filter(e => !sharedEdges.some(se => se.id === e.id));
         const uniqueEdges = Array.from(new Set(newEdges));
-        
-        const minX = Math.min(c1.cx, c2.cx);
-        const minY = Math.min(c1.cy, c2.cy);
-        const maxX = Math.max(c1.cx + c1.w, c2.cx + c2.w);
-        const maxY = Math.max(c1.cy + c1.h, c2.cy + c2.h);
         
         this.cells.push({
           id: `merged_${c1.id}_${c2.id}`,
           edges: uniqueEdges,
           captured: false,
           color: this.colors.captured,
-          cx: minX,
-          cy: minY,
-          w: maxX - minX,
-          h: maxY - minY
+          rects: [...c1.rects, ...c2.rects]
         });
         
-        const ex = (edge.n1.x + edge.n2.x) / 2;
-        const ey = (edge.n1.y + edge.n2.y) / 2;
-        this.spawnParticles(ex, ey, '#FFFFFF');
-        audio.playExplosion();
-        if (this.onMessage) this.onMessage(this.mutationMessage);
+        if (!silent) {
+          const ex = (edge.n1.x + edge.n2.x) / 2;
+          const ey = (edge.n1.y + edge.n2.y) / 2;
+          this.spawnParticles(ex, ey, '#FFFFFF');
+          audio.playExplosion();
+          if (this.onMessage) this.onMessage(this.mutationMessage);
+        }
         
         this.checkCells();
         break;
@@ -707,7 +1000,10 @@ export class GameEngine {
         if (allEdgesTraversed) {
           cell.captured = true;
           capturedThisFrame++;
-          this.spawnParticles(cell.cx + cell.w/2, cell.cy + cell.h/2, cell.color);
+          
+          // Spawn particles in the center of the first rect
+          const centerRect = cell.rects[Math.floor(cell.rects.length / 2)];
+          this.spawnParticles(centerRect.x + 0.5, centerRect.y + 0.5, cell.color);
           
           let pts = 100;
           if (this.player.double > 0) pts *= 2;
@@ -755,7 +1051,8 @@ export class GameEngine {
   levelComplete() {
     this.state = 'leveltransition';
     if (this.onStateChange) this.onStateChange(this.state);
-    audio.playStart();
+    audio.stopMusic();
+    audio.playLevelComplete();
     setTimeout(() => {
       this.level++;
       this.loadLevel();
@@ -766,7 +1063,6 @@ export class GameEngine {
 
   gameOver() {
     this.state = 'gameover';
-    audio.playExplosion();
     if (this.onStateChange) this.onStateChange(this.state);
   }
 
@@ -776,7 +1072,12 @@ export class GameEngine {
     // Clear
     ctx.clearRect(0, 0, width, height);
 
-    if (this.state === 'title') return;
+    if (this.state === 'title') {
+      ctx.save();
+      this.drawEnemies(ctx, gridSize);
+      ctx.restore();
+      return;
+    }
 
     ctx.save();
     ctx.translate(offsetX, offsetY);
@@ -785,7 +1086,9 @@ export class GameEngine {
     for (const cell of this.cells) {
       if (cell.captured) {
         ctx.fillStyle = cell.color;
-        ctx.fillRect(cell.cx * gridSize, cell.cy * gridSize, cell.w * gridSize, cell.h * gridSize);
+        for (const rect of cell.rects) {
+          ctx.fillRect(rect.x * gridSize, rect.y * gridSize, gridSize, gridSize);
+        }
       }
     }
 
@@ -834,23 +1137,7 @@ export class GameEngine {
     }
     ctx.globalAlpha = 1;
 
-    // Draw Enemies
-    for (const enemy of this.enemies) {
-      if (enemy.type === 'boss') {
-        ctx.fillStyle = this.colors.boss;
-        ctx.fillRect(enemy.x * gridSize - 15, enemy.y * gridSize - 15, 30, 30);
-        // Boss eyes
-        ctx.fillStyle = '#fff';
-        ctx.fillRect(enemy.x * gridSize - 8, enemy.y * gridSize - 8, 4, 4);
-        ctx.fillRect(enemy.x * gridSize + 4, enemy.y * gridSize - 8, 4, 4);
-      } else {
-        ctx.fillStyle = enemy.type === 'stalker' ? this.colors.enemyStalker : this.colors.enemySpark;
-        if (enemy.state === 'frozen') ctx.fillStyle = '#aaa';
-        
-        // Blocky enemies
-        ctx.fillRect(enemy.x * gridSize - 8, enemy.y * gridSize - 8, 16, 16);
-      }
-    }
+    this.drawEnemies(ctx, gridSize);
 
     // Draw Player
     if (this.player.invincible <= 0 || Math.floor(Date.now() / 100) % 2 === 0) {
@@ -865,5 +1152,163 @@ export class GameEngine {
     }
 
     ctx.restore();
+  }
+
+  drawEnemies(ctx: CanvasRenderingContext2D, gridSize: number) {
+    for (const enemy of this.enemies) {
+      if (enemy.type === 'boss') {
+        const size = enemy.size || 15;
+        let drawX = enemy.x * gridSize;
+        let drawY = enemy.y * gridSize;
+        
+        if (enemy.bossState === 'splitting') {
+          drawX += (Math.random() - 0.5) * 6;
+          drawY += (Math.random() - 0.5) * 6;
+        }
+        
+        let bossColor = this.colors.boss;
+        if (enemy.bossType === 'weaver') bossColor = '#8A2BE2'; // Purple
+        else if (enemy.bossType === 'dasher') bossColor = '#FF4500'; // OrangeRed
+        else if (enemy.bossType === 'splitter') bossColor = '#32CD32'; // LimeGreen
+        else if (enemy.bossType === 'turret') bossColor = '#808080'; // Gray
+        else if (enemy.bossType === 'teleporter') bossColor = '#00FFFF'; // Cyan
+
+        if (enemy.bossState === 'warning') {
+          // Draw warning reticle
+          ctx.strokeStyle = '#FF0000';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(enemy.targetX! * gridSize, enemy.targetY! * gridSize, size + Math.sin(Date.now()/50)*5, 0, Math.PI*2);
+          ctx.stroke();
+          ctx.globalAlpha = 0.3;
+        } else if (enemy.bossState === 'charging') {
+          ctx.fillStyle = Math.floor(Date.now() / 100) % 2 === 0 ? '#FFFFFF' : bossColor;
+        } else {
+          ctx.fillStyle = bossColor;
+        }
+        
+        if (enemy.bossType === 'weaver') {
+          // Spider-like (6 legs)
+          ctx.strokeStyle = ctx.fillStyle;
+          ctx.lineWidth = 3;
+          for (let i = 0; i < 6; i++) {
+            const angle = (i / 6) * Math.PI * 2 + Math.sin(Date.now() / 200 + i) * 0.5;
+            ctx.beginPath();
+            ctx.moveTo(drawX, drawY);
+            ctx.lineTo(drawX + Math.cos(angle) * size * 1.5, drawY + Math.sin(angle) * size * 1.5);
+            ctx.stroke();
+          }
+          ctx.beginPath();
+          ctx.arc(drawX, drawY, size, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#fff';
+          ctx.fillRect(drawX - size*0.4, drawY - size*0.4, size*0.2, size*0.2);
+          ctx.fillRect(drawX + size*0.2, drawY - size*0.4, size*0.2, size*0.2);
+        } else if (enemy.bossType === 'classic') {
+          // Skull-like
+          ctx.fillRect(drawX - size, drawY - size, size*2, size*1.5);
+          ctx.fillRect(drawX - size*0.6, drawY + size*0.5, size*1.2, size*0.5); // Jaw
+          ctx.fillStyle = '#000'; // Dark eyes for skull
+          ctx.fillRect(drawX - size*0.5, drawY - size*0.2, size*0.4, size*0.4);
+          ctx.fillRect(drawX + size*0.1, drawY - size*0.2, size*0.4, size*0.4);
+          ctx.fillStyle = '#000'; // Teeth
+          ctx.fillRect(drawX - size*0.4, drawY + size*0.5, size*0.1, size*0.5);
+          ctx.fillRect(drawX, drawY + size*0.5, size*0.1, size*0.5);
+          ctx.fillRect(drawX + size*0.3, drawY + size*0.5, size*0.1, size*0.5);
+        } else if (enemy.bossType === 'dasher') {
+          // Spiky
+          ctx.beginPath();
+          ctx.moveTo(drawX, drawY - size * 1.5);
+          ctx.lineTo(drawX + size * 1.5, drawY);
+          ctx.lineTo(drawX, drawY + size * 1.5);
+          ctx.lineTo(drawX - size * 1.5, drawY);
+          ctx.fill();
+          ctx.fillStyle = '#fff';
+          ctx.fillRect(drawX - size*0.2, drawY - size*0.2, size*0.4, size*0.4);
+        } else if (enemy.bossType === 'splitter') {
+          // Slime, wobbly
+          const wobble = Math.sin(Date.now() / 150) * size * 0.2;
+          ctx.beginPath();
+          ctx.ellipse(drawX, drawY, size + wobble, size - wobble, 0, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#fff';
+          ctx.beginPath();
+          ctx.arc(drawX - size*0.3, drawY - size*0.2, size*0.2, 0, Math.PI*2);
+          ctx.arc(drawX + size*0.3, drawY - size*0.2, size*0.2, 0, Math.PI*2);
+          ctx.fill();
+        } else if (enemy.bossType === 'turret') {
+          // Mechanical
+          ctx.fillRect(drawX - size, drawY - size, size*2, size*2);
+          ctx.fillStyle = '#333';
+          ctx.fillRect(drawX - size*0.8, drawY - size*0.8, size*1.6, size*1.6);
+          ctx.fillStyle = '#f00'; // Center eye
+          ctx.beginPath();
+          ctx.arc(drawX, drawY, size*0.4, 0, Math.PI*2);
+          ctx.fill();
+        } else if (enemy.bossType === 'teleporter') {
+          // Ethereal / Tentacles
+          ctx.globalAlpha = 0.8;
+          ctx.beginPath();
+          ctx.arc(drawX, drawY, size * 0.8, 0, Math.PI * 2);
+          ctx.fill();
+          
+          ctx.strokeStyle = ctx.fillStyle;
+          ctx.lineWidth = 4;
+          for (let i = 0; i < 8; i++) {
+            const angle = (i / 8) * Math.PI * 2 + Math.sin(Date.now() / 300 + i) * 0.3;
+            ctx.beginPath();
+            ctx.moveTo(drawX + Math.cos(angle) * size * 0.5, drawY + Math.sin(angle) * size * 0.5);
+            // Draw wavy tentacle
+            ctx.quadraticCurveTo(
+              drawX + Math.cos(angle + 0.5) * size * 1.5, 
+              drawY + Math.sin(angle + 0.5) * size * 1.5,
+              drawX + Math.cos(angle) * size * 2, 
+              drawY + Math.sin(angle) * size * 2
+            );
+            ctx.stroke();
+          }
+          ctx.globalAlpha = 1;
+          ctx.fillStyle = '#fff';
+          ctx.beginPath();
+          ctx.arc(drawX, drawY, size * 0.3, 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          // Default
+          ctx.fillRect(drawX - size, drawY - size, size*2, size*2);
+          ctx.fillStyle = '#fff';
+          const eyeOffset = size * 0.5;
+          const eyeSize = Math.max(2, size * 0.25);
+          ctx.fillRect(drawX - eyeOffset, drawY - eyeOffset, eyeSize, eyeSize);
+          ctx.fillRect(drawX + eyeOffset - eyeSize, drawY - eyeOffset, eyeSize, eyeSize);
+        }
+        
+        ctx.globalAlpha = 1;
+      } else if (enemy.type === 'projectile') {
+        ctx.fillStyle = '#FFFF00';
+        ctx.beginPath();
+        ctx.arc(enemy.x * gridSize, enemy.y * gridSize, enemy.size || 4, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (enemy.type === 'web') {
+        ctx.strokeStyle = `rgba(255, 255, 255, ${Math.min(1, enemy.life! / 2)})`;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(enemy.x * gridSize - 8, enemy.y * gridSize - 8);
+        ctx.lineTo(enemy.x * gridSize + 8, enemy.y * gridSize + 8);
+        ctx.moveTo(enemy.x * gridSize + 8, enemy.y * gridSize - 8);
+        ctx.lineTo(enemy.x * gridSize - 8, enemy.y * gridSize + 8);
+        ctx.stroke();
+      } else if (enemy.type === 'miniboss') {
+        ctx.fillStyle = '#FF5555'; // Reddish
+        ctx.beginPath();
+        ctx.arc(enemy.x * gridSize, enemy.y * gridSize, 6, 0, Math.PI * 2);
+        ctx.fill();
+      } else {
+        ctx.fillStyle = enemy.type === 'stalker' ? this.colors.enemyStalker : this.colors.enemySpark;
+        if (enemy.state === 'frozen') ctx.fillStyle = '#aaa';
+        
+        // Blocky enemies
+        ctx.fillRect(enemy.x * gridSize - 8, enemy.y * gridSize - 8, 16, 16);
+      }
+    }
   }
 }

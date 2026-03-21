@@ -47,7 +47,10 @@ export const translations = {
     perkDouble: "TUPLAPISTEET!",
     language: "EN",
     colorblind: "VÄRISOKEUSMOODI",
-    controls: "Liiku pyyhkäisemällä tai nuolinäppäimillä"
+    controls: "Liiku pyyhkäisemällä tai nuolinäppäimillä",
+    testModeNoScore: "TESTITILA - PISTEITÄ EI TALLENNETA",
+    returnToTitle: "PALAA ALKUUN",
+    testLevel: "TESTIKENTTÄ (DEV):"
   },
   en: {
     start: "PRESS START",
@@ -66,7 +69,10 @@ export const translations = {
     perkDouble: "DOUBLE POINTS!",
     language: "FI",
     colorblind: "COLORBLIND MODE",
-    controls: "Swipe or use arrow keys to move"
+    controls: "Swipe or use arrow keys to move",
+    testModeNoScore: "TEST MODE - SCORE NOT SAVED",
+    returnToTitle: "RETURN TO TITLE",
+    testLevel: "TEST LEVEL (DEV):"
   }
 };
 
