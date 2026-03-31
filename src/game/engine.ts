@@ -218,8 +218,6 @@ export class GameEngine {
     this.particles = [];
     this.perks = [];
     
-    audio.stopMusic();
-    
     this.player.dir = 'idle';
     this.player.nextDir = 'idle';
     this.player.invincible = 0;
@@ -954,7 +952,10 @@ export class GameEngine {
       return;
     }
 
-    if (enemy.type === 'stalker') {
+    const distToPlayer = Math.abs(ix - this.player.x) + Math.abs(iy - this.player.y);
+    const chaseRadius = enemy.type === 'stalker' ? 12 : 7; // Stalkers see further
+
+    if (distToPlayer < chaseRadius) {
       // Try to move towards player
       let bestDir = possible[0];
       let minDist = Infinity;
@@ -970,14 +971,14 @@ export class GameEngine {
           bestDir = d;
         }
       }
-      // 80% chance to follow best path, 20% random
-      if (Math.random() < 0.8) {
+      // 85% chance to follow best path, 15% random
+      if (Math.random() < 0.85) {
         enemy.dir = bestDir;
         return;
       }
     }
 
-    // Spark or random fallback
+    // Random fallback when far away or randomly ignoring
     enemy.dir = possible[Math.floor(Math.random() * possible.length)];
   }
 
@@ -1051,7 +1052,6 @@ export class GameEngine {
   levelComplete() {
     this.state = 'leveltransition';
     if (this.onStateChange) this.onStateChange(this.state);
-    audio.stopMusic();
     audio.playLevelComplete();
     setTimeout(() => {
       this.level++;

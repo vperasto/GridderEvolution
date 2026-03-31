@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { GameEngine, Dir } from './game/engine';
 import { audio } from './game/audio';
 import { getHighScores, saveHighScore, translations, Language, HighScore } from './game/meta';
-import { Volume2, VolumeX, Maximize, Minimize, FastForward, Pause, Play, Music, ChevronDown, ChevronUp, Eye } from 'lucide-react';
+import { Volume2, VolumeX, Maximize, Minimize, Pause, Play, Eye } from 'lucide-react';
 
 export default function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -20,19 +20,10 @@ export default function App() {
   
   const [musicVol, setMusicVol] = useState(0.5);
   const [musicMuted, setMusicMuted] = useState(false);
-  const [musicTempo, setMusicTempo] = useState(1.0);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [currentTrackIdx, setCurrentTrackIdx] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
-  const [playlistVisible, setPlaylistVisible] = useState(true);
 
   const t = translations[lang];
-  const playlist = audio.getPlaylist();
-
-  const handleTrackChange = (idx: number) => {
-    setCurrentTrackIdx(idx);
-    audio.setTrack(idx);
-  };
 
   const handlePause = () => {
     if (engineRef.current) {
@@ -180,7 +171,6 @@ export default function App() {
     audio.init();
     audio.musicVolume = musicVol;
     audio.musicMuted = musicMuted;
-    audio.musicTempo = musicTempo;
     engineRef.current?.start(startLevel);
   };
 
@@ -217,17 +207,32 @@ export default function App() {
     audio.musicVolume = vol;
   };
 
-  const handleTempoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const tempo = parseFloat(e.target.value);
-    setMusicTempo(tempo);
-    audio.musicTempo = tempo;
-  };
-
   const toggleMute = () => {
     const newMuted = !musicMuted;
     setMusicMuted(newMuted);
     audio.musicMuted = newMuted;
   };
+
+  useEffect(() => {
+    const initAudioOnInteraction = () => {
+      if (!audio.enabled) {
+        audio.init();
+        if (gameState === 'title') {
+          audio.startMusic(false, 1);
+        }
+      }
+    };
+
+    window.addEventListener('click', initAudioOnInteraction, { once: true });
+    window.addEventListener('touchstart', initAudioOnInteraction, { once: true });
+    window.addEventListener('keydown', initAudioOnInteraction, { once: true });
+
+    return () => {
+      window.removeEventListener('click', initAudioOnInteraction);
+      window.removeEventListener('touchstart', initAudioOnInteraction);
+      window.removeEventListener('keydown', initAudioOnInteraction);
+    };
+  }, [gameState]);
 
   useEffect(() => {
     if (gameState === 'title') {
@@ -281,29 +286,9 @@ export default function App() {
 
         {/* Settings Controls (Bottom Right) */}
         <div className="absolute bottom-4 right-4 flex flex-col items-end gap-2 pointer-events-auto z-50">
-          {/* Track Selector & Sliders (only show if not muted) */}
-          {!musicMuted && playlistVisible && (
+          {/* Volume Slider (only show if not muted) */}
+          {!musicMuted && (
             <div className="flex flex-col gap-3 bg-black/50 p-3 rounded border border-[#0088FF]/30 text-xs">
-              {/* Track Select */}
-              <div className="flex flex-col gap-2 mb-1">
-                <span className="text-[10px] text-[#0088FF]/70 uppercase tracking-tighter">Playlist</span>
-                <div className="flex flex-col gap-1">
-                  {playlist.map((name, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => handleTrackChange(idx)}
-                      className={`text-left px-2 py-1 rounded transition-colors ${
-                        currentTrackIdx === idx 
-                          ? 'bg-[#0088FF] text-black font-bold' 
-                          : 'hover:bg-[#0088FF]/20 text-[#0088FF]'
-                      }`}
-                    >
-                      {name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
               <div className="flex items-center gap-3">
                 <Volume2 size={16} />
                 <input 
@@ -312,22 +297,10 @@ export default function App() {
                   className="w-24 md:w-32 h-2 bg-[#0088FF]/30 rounded-lg appearance-none cursor-pointer"
                 />
               </div>
-              <div className="flex items-center gap-3">
-                <FastForward size={16} />
-                <input 
-                  type="range" min="0.5" max="2" step="0.1" 
-                  value={musicTempo} onChange={handleTempoChange}
-                  className="w-24 md:w-32 h-2 bg-[#0088FF]/30 rounded-lg appearance-none cursor-pointer"
-                />
-              </div>
             </div>
           )}
 
           <div className="flex items-center gap-4 bg-black/50 p-3 rounded border border-[#0088FF]/30">
-            <button onClick={() => setPlaylistVisible(!playlistVisible)} className="text-[#0088FF] hover:text-white transition-colors flex items-center gap-1" title="Toggle Playlist">
-              <Music size={24} />
-              {playlistVisible ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
-            </button>
             <button onClick={toggleFullscreen} className="text-[#0088FF] hover:text-white transition-colors" title="Fullscreen">
               {isFullscreen ? <Minimize size={24} /> : <Maximize size={24} />}
             </button>
