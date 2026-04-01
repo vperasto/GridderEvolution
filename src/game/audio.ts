@@ -34,10 +34,14 @@ export class AudioEngine {
       this.bgMusic = new Audio(bgMusicUrl);
       this.bgMusic.loop = true;
       this.bgMusic.muted = this._musicMuted;
+      this.bgMusic.preload = 'auto';
+      this.bgMusic.load();
 
       this.bossMusic = new Audio(bossMusicUrl);
       this.bossMusic.loop = true;
       this.bossMusic.muted = this._musicMuted;
+      this.bossMusic.preload = 'auto';
+      this.bossMusic.load();
     }
     if (this.ctx.state === 'suspended') {
       this.ctx.resume();
@@ -367,7 +371,10 @@ export class AudioEngine {
       // Already playing the correct track
       if (this.currentMusic.paused) {
         this.currentMusic.volume = this._musicVolume;
-        this.currentMusic.play().catch(e => console.warn("Music play blocked by browser:", e));
+        const playPromise = this.currentMusic.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(e => console.warn("Music play blocked by browser:", e));
+        }
       }
       return;
     }
@@ -382,7 +389,14 @@ export class AudioEngine {
     
     // Start new track at 0 volume
     this.currentMusic.volume = 0;
-    this.currentMusic.play().catch(e => console.warn("Music play blocked by browser:", e));
+    const playPromise = this.currentMusic.play();
+    if (playPromise !== undefined) {
+      playPromise.catch(e => {
+        console.warn("Music play blocked by browser:", e);
+        // If play is blocked, ensure volume is restored so it plays if unblocked later
+        if (this.currentMusic) this.currentMusic.volume = this._musicVolume;
+      });
+    }
 
     const fadeDuration = 2000; // 2 seconds crossfade
     const steps = 20;

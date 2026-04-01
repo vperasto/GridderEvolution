@@ -220,8 +220,8 @@ export class GameEngine {
     this.player.shield = false;
     if (this.onScoreChange) this.onScoreChange(this.score);
     if (this.onLivesChange) this.onLivesChange(this.lives);
-    if (this.onTimeChange) this.onTimeChange(this.timeLeft);
-    if (this.onCooldownChange) this.onCooldownChange(this.cutCooldown);
+    if (this.onTimeChange) this.onTimeChange(Math.ceil(this.timeLeft));
+    if (this.onCooldownChange) this.onCooldownChange(Math.ceil(this.cutCooldown));
     this.loadLevel();
     if (this.onStateChange) this.onStateChange(this.state);
     audio.playStart();
@@ -237,8 +237,8 @@ export class GameEngine {
     this.cuts = [];
     this.timeLeft = 1000;
     this.cutCooldown = 0;
-    if (this.onTimeChange) this.onTimeChange(this.timeLeft);
-    if (this.onCooldownChange) this.onCooldownChange(this.cutCooldown);
+    if (this.onTimeChange) this.onTimeChange(Math.ceil(this.timeLeft));
+    if (this.onCooldownChange) this.onCooldownChange(Math.ceil(this.cutCooldown));
     
     this.player.dir = 'idle';
     this.player.nextDir = 'idle';
@@ -268,12 +268,8 @@ export class GameEngine {
     this.offsetX = (this.width - cols * this.gridSize) / 2;
     this.offsetY = (this.height - rows * this.gridSize) / 2 + 40;
 
-    // Create nodes
-    for (let y = 0; y <= rows; y++) {
-      for (let x = 0; x <= cols; x++) {
-        this.nodes.push({ x, y });
-      }
-    }
+    // We will populate this.nodes later based on valid edges
+    this.nodes = [];
 
     const getEdgeId = (p1: Point, p2: Point) => {
       const x1 = Math.min(p1.x, p2.x);
@@ -291,12 +287,35 @@ export class GameEngine {
       return this.edges.get(id)!;
     };
 
+    let bossShape = 'O';
+    if (isBoss) {
+      const shapes = ['O', 'S', 'E', 'U', 'H', 'C'];
+      bossShape = shapes[Math.floor(Math.random() * shapes.length)];
+    }
+
     // Create cells and edges
     for (let y = 0; y < rows; y++) {
       for (let x = 0; x < cols; x++) {
-        // Boss level: skip middle cells to make a big arena
-        if (isBoss && x > 0 && x < cols - 1 && y > 0 && y < rows - 1) {
-          continue;
+        // Boss level: skip cells based on random shape
+        if (isBoss) {
+          let skip = false;
+          if (bossShape === 'O') {
+            skip = (x > 0 && x < cols - 1 && y > 0 && y < rows - 1);
+          } else if (bossShape === 'S') {
+            if (y > 0 && y < Math.floor(rows/2) && x > 0) skip = true;
+            if (y > Math.floor(rows/2) && y < rows - 1 && x < cols - 1) skip = true;
+          } else if (bossShape === 'E') {
+            if (x > 0 && y > 0 && y < Math.floor(rows/2)) skip = true;
+            if (x > 0 && y > Math.floor(rows/2) && y < rows - 1) skip = true;
+          } else if (bossShape === 'U') {
+            if (x > 0 && x < cols - 1 && y < rows - 1) skip = true;
+          } else if (bossShape === 'H') {
+            if (x > 0 && x < cols - 1 && y < Math.floor(rows/2)) skip = true;
+            if (x > 0 && x < cols - 1 && y > Math.floor(rows/2)) skip = true;
+          } else if (bossShape === 'C') {
+            if (x > 0 && y > 0 && y < rows - 1) skip = true;
+          }
+          if (skip) continue;
         }
         
         // Randomly skip some cells to make irregular shapes (from level 3)
@@ -321,6 +340,21 @@ export class GameEngine {
           color: this.colors.captured,
           rects: [{x, y}]
         });
+      }
+    }
+
+    // Populate nodes from valid edges so perks only spawn on reachable grid points
+    const nodeSet = new Set<string>();
+    for (const edge of this.edges.values()) {
+      const id1 = `${edge.n1.x},${edge.n1.y}`;
+      if (!nodeSet.has(id1)) {
+        nodeSet.add(id1);
+        this.nodes.push(edge.n1);
+      }
+      const id2 = `${edge.n2.x},${edge.n2.y}`;
+      if (!nodeSet.has(id2)) {
+        nodeSet.add(id2);
+        this.nodes.push(edge.n2);
       }
     }
 
@@ -423,7 +457,7 @@ export class GameEngine {
       timer: 3
     });
     this.cutCooldown = 5;
-    if (this.onCooldownChange) this.onCooldownChange(this.cutCooldown);
+    if (this.onCooldownChange) this.onCooldownChange(Math.ceil(this.cutCooldown));
     audio.playExplosion();
   }
 
@@ -442,7 +476,7 @@ export class GameEngine {
     }
     if (this.state === 'countdown') {
       this.countdown -= dt;
-      if (this.onCountdownChange) this.onCountdownChange(this.countdown);
+      if (this.onCountdownChange) this.onCountdownChange(Math.ceil(this.countdown));
       if (this.countdown <= 0) {
         this.state = 'playing';
         if (this.onStateChange) this.onStateChange(this.state);
@@ -457,12 +491,12 @@ export class GameEngine {
       this.timeLeft = 0;
       this.playerDeath(true);
     }
-    if (this.onTimeChange) this.onTimeChange(this.timeLeft);
+    if (this.onTimeChange) this.onTimeChange(Math.ceil(this.timeLeft));
 
     // Cut Cooldown
     if (this.cutCooldown > 0) {
       this.cutCooldown -= dt;
-      if (this.onCooldownChange) this.onCooldownChange(this.cutCooldown);
+      if (this.onCooldownChange) this.onCooldownChange(Math.ceil(this.cutCooldown));
     }
 
     // Timers
@@ -856,7 +890,7 @@ export class GameEngine {
         this.state = 'countdown';
         this.countdown = 3;
         if (this.onStateChange) this.onStateChange(this.state);
-        if (this.onCountdownChange) this.onCountdownChange(this.countdown);
+        if (this.onCountdownChange) this.onCountdownChange(Math.ceil(this.countdown));
       } else {
         // Reset player position and give invincibility
         this.player.x = 0;
@@ -865,7 +899,7 @@ export class GameEngine {
         this.player.nextDir = 'idle';
         this.player.invincible = 3;
         this.timeLeft = 1000;
-        if (this.onTimeChange) this.onTimeChange(this.timeLeft);
+        if (this.onTimeChange) this.onTimeChange(Math.ceil(this.timeLeft));
       }
     }
   }
@@ -1249,13 +1283,28 @@ export class GameEngine {
     // Draw Edges
     ctx.lineWidth = 4;
     ctx.lineCap = 'square'; // C64 blocky style
+    
+    // Draw untraversed edges
+    ctx.beginPath();
     for (const edge of this.edges.values()) {
-      ctx.strokeStyle = edge.traversed ? this.colors.player : this.colors.grid;
-      ctx.beginPath();
-      ctx.moveTo(edge.n1.x * gridSize, edge.n1.y * gridSize);
-      ctx.lineTo(edge.n2.x * gridSize, edge.n2.y * gridSize);
-      ctx.stroke();
+      if (!edge.traversed) {
+        ctx.moveTo(edge.n1.x * gridSize, edge.n1.y * gridSize);
+        ctx.lineTo(edge.n2.x * gridSize, edge.n2.y * gridSize);
+      }
     }
+    ctx.strokeStyle = this.colors.grid;
+    ctx.stroke();
+
+    // Draw traversed edges
+    ctx.beginPath();
+    for (const edge of this.edges.values()) {
+      if (edge.traversed) {
+        ctx.moveTo(edge.n1.x * gridSize, edge.n1.y * gridSize);
+        ctx.lineTo(edge.n2.x * gridSize, edge.n2.y * gridSize);
+      }
+    }
+    ctx.strokeStyle = this.colors.player;
+    ctx.stroke();
 
     // Draw Perks
     for (const perk of this.perks) {

@@ -119,17 +119,22 @@ export default function App() {
     
     reqId = requestAnimationFrame(loop);
 
+    let resizeTimeout: number;
     const handleResize = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
-      engine.width = canvas.width;
-      engine.height = canvas.height;
-      if (engine.state === 'playing') engine.loadLevel(); // Reload to adjust grid
+      clearTimeout(resizeTimeout);
+      resizeTimeout = window.setTimeout(() => {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        engine.width = canvas.width;
+        engine.height = canvas.height;
+        if (engine.state === 'playing') engine.loadLevel(); // Reload to adjust grid
+      }, 200);
     };
     window.addEventListener('resize', handleResize);
 
     return () => {
       cancelAnimationFrame(reqId);
+      clearTimeout(resizeTimeout);
       window.removeEventListener('resize', handleResize);
       if (unsubscribe) unsubscribe();
     };
