@@ -322,6 +322,34 @@ export class AudioEngine {
     });
   }
 
+  playBossWarning() {
+    if (!this.enabled || !this.ctx) return;
+    // High-pitched alarming sound
+    this.playTone(800, 'square', 0.1, 0.15);
+    setTimeout(() => this.playTone(800, 'square', 0.1, 0.15), 150);
+  }
+
+  playBossAbility() {
+    if (!this.enabled || !this.ctx) return;
+    // Deep swoosh or impact
+    this.playNoise(0.4, 0.3);
+    this.playTone(150, 'sawtooth', 0.4, 0.2);
+    setTimeout(() => this.playTone(100, 'sawtooth', 0.3, 0.2), 100);
+  }
+
+  private lastBossHitTime = 0;
+
+  playBossHit() {
+    if (!this.enabled || !this.ctx) return;
+    const now = Date.now();
+    if (now - this.lastBossHitTime < 200) return;
+    this.lastBossHitTime = now;
+    // Metallic clank or heavy hit
+    this.playNoise(0.2, 0.4);
+    this.playTone(200, 'square', 0.1, 0.2);
+    setTimeout(() => this.playTone(150, 'square', 0.1, 0.2), 50);
+  }
+
   playStart() {
     [261.63, 329.63, 392.00, 523.25].forEach((freq, i) => {
       setTimeout(() => this.playTone(freq, 'square', 0.2, 0.1), i * 150);

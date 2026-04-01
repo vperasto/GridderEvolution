@@ -62,6 +62,12 @@ export interface Enemy {
   size?: number;
 }
 
+export interface Cut {
+  x: number;
+  y: number;
+  timer: number;
+}
+
 export class GameEngine {
   width: number;
   height: number;
@@ -71,11 +77,15 @@ export class GameEngine {
   score = 0;
   lives = 3;
   paused = false;
-  state: 'title' | 'playing' | 'gameover' | 'leveltransition' = 'title';
+  state: 'title' | 'playing' | 'gameover' | 'leveltransition' | 'countdown' = 'title';
+  timeLeft = 1000;
+  countdown = 0;
+  cutCooldown = 0;
   
   nodes: Point[] = [];
   edges: Map<string, Edge> = new Map();
   cells: Cell[] = [];
+  cuts: Cut[] = [];
   
   player = { x: 0, y: 0, dir: 'idle' as Dir, nextDir: 'idle' as Dir, speed: 1.4, shield: false, double: 0, speedTimer: 0, invincible: 0, lastNode: { x: 0, y: 0 } };
   enemies: Enemy[] = [];
@@ -98,6 +108,9 @@ export class GameEngine {
   onScoreChange?: (score: number) => void;
   onLevelChange?: (level: number) => void;
   onLivesChange?: (lives: number) => void;
+  onTimeChange?: (time: number) => void;
+  onCooldownChange?: (cd: number) => void;
+  onCountdownChange?: (cd: number) => void;
   onMessage?: (msg: string) => void;
 
   // Strict C64 Palette
@@ -202,9 +215,13 @@ export class GameEngine {
     this.level = startLevel;
     this.score = 0;
     this.lives = 3;
+    this.timeLeft = 1000;
+    this.cutCooldown = 0;
     this.player.shield = false;
     if (this.onScoreChange) this.onScoreChange(this.score);
     if (this.onLivesChange) this.onLivesChange(this.lives);
+    if (this.onTimeChange) this.onTimeChange(this.timeLeft);
+    if (this.onCooldownChange) this.onCooldownChange(this.cutCooldown);
     this.loadLevel();
     if (this.onStateChange) this.onStateChange(this.state);
     audio.playStart();
@@ -217,6 +234,11 @@ export class GameEngine {
     this.enemies = [];
     this.particles = [];
     this.perks = [];
+    this.cuts = [];
+    this.timeLeft = 1000;
+    this.cutCooldown = 0;
+    if (this.onTimeChange) this.onTimeChange(this.timeLeft);
+    if (this.onCooldownChange) this.onCooldownChange(this.cutCooldown);
     
     this.player.dir = 'idle';
     this.player.nextDir = 'idle';
@@ -242,9 +264,9 @@ export class GameEngine {
     if (cols > 12) cols = 12;
     if (rows > 10) rows = 10;
     
-    this.gridSize = Math.min((this.width - 40) / cols, (this.height - 80) / rows);
+    this.gridSize = Math.min((this.width - 40) / cols, (this.height - 120) / rows);
     this.offsetX = (this.width - cols * this.gridSize) / 2;
-    this.offsetY = (this.height - rows * this.gridSize) / 2 + 20;
+    this.offsetY = (this.height - rows * this.gridSize) / 2 + 40;
 
     // Create nodes
     for (let y = 0; y <= rows; y++) {
@@ -391,6 +413,20 @@ export class GameEngine {
     }
   }
 
+  cutLine() {
+    if (this.state !== 'playing' || this.paused) return;
+    if (this.cutCooldown > 0) return;
+    
+    this.cuts.push({
+      x: this.player.x,
+      y: this.player.y,
+      timer: 3
+    });
+    this.cutCooldown = 5;
+    if (this.onCooldownChange) this.onCooldownChange(this.cutCooldown);
+    audio.playExplosion();
+  }
+
   update(dt: number) {
     if (this.paused) return;
     if (this.state === 'title') {
@@ -404,7 +440,30 @@ export class GameEngine {
       }
       return;
     }
+    if (this.state === 'countdown') {
+      this.countdown -= dt;
+      if (this.onCountdownChange) this.onCountdownChange(this.countdown);
+      if (this.countdown <= 0) {
+        this.state = 'playing';
+        if (this.onStateChange) this.onStateChange(this.state);
+      }
+      return;
+    }
     if (this.state !== 'playing') return;
+
+    // Time limit
+    this.timeLeft -= dt * 10;
+    if (this.timeLeft <= 0) {
+      this.timeLeft = 0;
+      this.playerDeath(true);
+    }
+    if (this.onTimeChange) this.onTimeChange(this.timeLeft);
+
+    // Cut Cooldown
+    if (this.cutCooldown > 0) {
+      this.cutCooldown -= dt;
+      if (this.onCooldownChange) this.onCooldownChange(this.cutCooldown);
+    }
 
     // Timers
     if (this.player.speedTimer > 0) this.player.speedTimer -= dt;
@@ -451,6 +510,29 @@ export class GameEngine {
         this.applyPerk(p.type);
         this.perks.splice(i, 1);
       }
+    }
+
+    // Update Cuts
+    for (let i = this.cuts.length - 1; i >= 0; i--) {
+      const cut = this.cuts[i];
+      cut.timer -= dt;
+      
+      // Spawn electric sparks
+      if (Math.random() < 0.4) {
+        const angle = Math.random() * Math.PI * 2;
+        const speed = Math.random() * 1.5 + 0.5;
+        this.particles.push({
+          x: cut.x,
+          y: cut.y,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          life: 0.1 + Math.random() * 0.2,
+          maxLife: 0.3,
+          color: Math.random() > 0.5 ? '#00FFFF' : '#FFFFFF'
+        });
+      }
+
+      if (cut.timer <= 0) this.cuts.splice(i, 1);
     }
 
     // Move Player
@@ -507,11 +589,13 @@ export class GameEngine {
               enemy.timer = 0;
               enemy.targetX = this.player.x;
               enemy.targetY = this.player.y;
+              audio.playBossWarning();
             }
           } else if (enemy.bossState === 'charging') {
             if (enemy.timer > 1) {
               enemy.bossState = 'dashing';
               enemy.timer = 0;
+              audio.playBossAbility();
             }
           } else if (enemy.bossState === 'dashing') {
             const dx = enemy.targetX! - enemy.x;
@@ -538,6 +622,7 @@ export class GameEngine {
             if (enemy.timer > 6 && !enemy.parent) {
               enemy.bossState = 'splitting';
               enemy.timer = 0;
+              audio.playBossWarning();
             }
           } else if (enemy.bossState === 'splitting') {
             // Shake effect in draw
@@ -545,6 +630,7 @@ export class GameEngine {
               enemy.bossState = 'split';
               enemy.timer = 0;
               enemy.size = 8; // shrink main body
+              audio.playBossAbility();
               // Spawn 3 clones
               for (let i = 0; i < 3; i++) {
                 const angle = (i / 3) * Math.PI * 2;
@@ -606,6 +692,7 @@ export class GameEngine {
           }
           if (enemy.timer > 2.5) {
             enemy.timer = 0;
+            audio.playBossAbility();
             for (let i = 0; i < 8; i++) {
               const angle = (i / 8) * Math.PI * 2;
               this.enemies.push({
@@ -630,6 +717,7 @@ export class GameEngine {
               enemy.timer = 0;
               enemy.targetX = this.player.x;
               enemy.targetY = this.player.y;
+              audio.playBossWarning();
             }
           } else if (enemy.bossState === 'warning') {
             if (enemy.timer > 1.5) {
@@ -637,6 +725,7 @@ export class GameEngine {
               enemy.y = enemy.targetY!;
               enemy.bossState = 'moving';
               enemy.timer = 0;
+              audio.playBossAbility();
             }
           }
         }
@@ -650,6 +739,7 @@ export class GameEngine {
           }
           if (enemy.timer > 0.8) {
             enemy.timer = 0;
+            audio.playBossAbility();
             this.enemies.push({
               x: enemy.x, y: enemy.y, startX: enemy.x, startY: enemy.y,
               type: 'web', dir: 'idle', speed: 0, state: 'moving', freezeTimer: 0,
@@ -725,7 +815,11 @@ export class GameEngine {
             this.player.invincible = 2;
             enemy.x = enemy.startX; // reset enemy
             enemy.y = enemy.startY;
-            audio.playHit();
+            if (enemy.type === 'boss') {
+              audio.playBossHit();
+            } else {
+              audio.playHit();
+            }
             this.spawnParticles(this.player.x, this.player.y, this.colors.perkShield);
           } else {
             this.playerDeath();
@@ -747,7 +841,7 @@ export class GameEngine {
     this.enemies = this.enemies.filter(e => e.freezeTimer !== -1);
   }
 
-  playerDeath() {
+  playerDeath(isTimeOut: boolean = false) {
     this.spawnParticles(this.player.x, this.player.y, this.colors.player);
     this.lives--;
     if (this.onLivesChange) this.onLivesChange(this.lives);
@@ -757,12 +851,22 @@ export class GameEngine {
       this.gameOver();
     } else {
       audio.playHit();
-      // Reset player position and give invincibility
-      this.player.x = 0;
-      this.player.y = 0;
-      this.player.dir = 'idle';
-      this.player.nextDir = 'idle';
-      this.player.invincible = 3;
+      if (isTimeOut) {
+        this.loadLevel(); // Reset level
+        this.state = 'countdown';
+        this.countdown = 3;
+        if (this.onStateChange) this.onStateChange(this.state);
+        if (this.onCountdownChange) this.onCountdownChange(this.countdown);
+      } else {
+        // Reset player position and give invincibility
+        this.player.x = 0;
+        this.player.y = 0;
+        this.player.dir = 'idle';
+        this.player.nextDir = 'idle';
+        this.player.invincible = 3;
+        this.timeLeft = 1000;
+        if (this.onTimeChange) this.onTimeChange(this.timeLeft);
+      }
     }
   }
 
@@ -815,12 +919,49 @@ export class GameEngine {
         break; // Failsafe: if we aren't moving, break out of the loop
       }
 
+      let startX = ent.x;
+      let startY = ent.y;
+      
       if (ent.dir === 'up') ent.y -= step;
       if (ent.dir === 'down') ent.y += step;
       if (ent.dir === 'left') ent.x -= step;
       if (ent.dir === 'right') ent.x += step;
       
       moved += step;
+
+      // Check cuts for all entities
+      if (ent.type !== 'projectile' && ent.type !== 'web') {
+        for (const cut of this.cuts) {
+          let hit = false;
+          const eps = 0.001;
+          if (ent.dir === 'right' && startX <= cut.x + eps && ent.x >= cut.x - eps && Math.abs(ent.y - cut.y) < eps) hit = true;
+          if (ent.dir === 'left' && startX >= cut.x - eps && ent.x <= cut.x + eps && Math.abs(ent.y - cut.y) < eps) hit = true;
+          if (ent.dir === 'down' && startY <= cut.y + eps && ent.y >= cut.y - eps && Math.abs(ent.x - cut.x) < eps) hit = true;
+          if (ent.dir === 'up' && startY >= cut.y - eps && ent.y <= cut.y + eps && Math.abs(ent.x - cut.x) < eps) hit = true;
+
+          if (Math.abs(startX - cut.x) < eps && Math.abs(startY - cut.y) < eps) {
+            hit = false; // Started exactly on it, allow moving away
+          }
+
+          if (hit) {
+            if (isPlayer) {
+              ent.x = cut.x;
+              ent.y = cut.y;
+              ent.dir = 'idle';
+              ent.nextDir = 'idle';
+            } else {
+              if (ent.type === 'boss') {
+                audio.playBossHit();
+              }
+              if (ent.dir === 'up') { ent.y = cut.y + 0.01; ent.dir = 'down'; }
+              else if (ent.dir === 'down') { ent.y = cut.y - 0.01; ent.dir = 'up'; }
+              else if (ent.dir === 'left') { ent.x = cut.x + 0.01; ent.dir = 'right'; }
+              else if (ent.dir === 'right') { ent.x = cut.x - 0.01; ent.dir = 'left'; }
+            }
+            break;
+          }
+        }
+      }
 
       // Reached intersection?
       if (Math.abs(ent.x - targetX) < 0.001 && Math.abs(ent.y - targetY) < 0.001) {
@@ -914,6 +1055,12 @@ export class GameEngine {
   }
 
   canMove(x: number, y: number, dir: Dir) {
+    const isAtIntersectionX = Math.abs(x - Math.round(x)) < 0.001;
+    const isAtIntersectionY = Math.abs(y - Math.round(y)) < 0.001;
+    
+    if (!isAtIntersectionX && (dir === 'up' || dir === 'down')) return false;
+    if (!isAtIntersectionY && (dir === 'left' || dir === 'right')) return false;
+
     let nx = Math.round(x);
     let ny = Math.round(y);
     if (dir === 'up') ny -= 1;
@@ -921,6 +1068,13 @@ export class GameEngine {
     if (dir === 'left') nx -= 1;
     if (dir === 'right') nx += 1;
     
+    // Check if the target node has a cut
+    for (const cut of this.cuts) {
+      if (Math.abs(cut.x - nx) < 0.001 && Math.abs(cut.y - ny) < 0.001) {
+        return false;
+      }
+    }
+
     const id = this.getEdgeId({x: Math.round(x), y: Math.round(y)}, {x: nx, y: ny});
     return this.edges.has(id);
   }
@@ -1137,17 +1291,106 @@ export class GameEngine {
     }
     ctx.globalAlpha = 1;
 
+    // Draw Cuts
+    for (const cut of this.cuts) {
+      const cx = cut.x * gridSize;
+      const cy = cut.y * gridSize;
+
+      // Black background to hide the grid line
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(cx - 8, cy - 8, 16, 16);
+      
+      // Electric crackle effect
+      ctx.globalAlpha = Math.min(1, cut.timer);
+      
+      // Draw jagged lightning lines
+      ctx.strokeStyle = Math.random() > 0.5 ? '#00FFFF' : '#FFFFFF';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(cx + (Math.random() - 0.5) * 12, cy + (Math.random() - 0.5) * 12);
+      for(let j = 0; j < 3; j++) {
+         ctx.lineTo(cx + (Math.random() - 0.5) * 14, cy + (Math.random() - 0.5) * 14);
+      }
+      ctx.stroke();
+
+      // Draw random glitch pixels
+      ctx.fillStyle = '#00FFFF';
+      for(let j = 0; j < 3; j++) {
+         ctx.fillRect(cx + (Math.random() - 0.5) * 14, cy + (Math.random() - 0.5) * 14, 2, 2);
+      }
+
+      ctx.globalAlpha = 1;
+    }
+
     this.drawEnemies(ctx, gridSize);
 
     // Draw Player
     if (this.player.invincible <= 0 || Math.floor(Date.now() / 100) % 2 === 0) {
-      ctx.fillStyle = this.colors.player;
-      ctx.fillRect(this.player.x * gridSize - 8, this.player.y * gridSize - 8, 16, 16); // Blocky player
+      const px = this.player.x * gridSize;
+      const py = this.player.y * gridSize;
+
+      ctx.save();
+      ctx.translate(px, py);
+
+      // Draw Octagon base (Drone body)
+      ctx.beginPath();
+      const octSize = 8;
+      const corner = octSize * 0.4;
+      ctx.moveTo(-octSize, -corner);
+      ctx.lineTo(-corner, -octSize);
+      ctx.lineTo(corner, -octSize);
+      ctx.lineTo(octSize, -corner);
+      ctx.lineTo(octSize, corner);
+      ctx.lineTo(corner, octSize);
+      ctx.lineTo(-corner, octSize);
+      ctx.lineTo(-octSize, corner);
+      ctx.closePath();
       
+      // Drone body styling (Dark with neon border)
+      ctx.fillStyle = '#111111';
+      ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = this.colors.player;
+      ctx.shadowColor = this.colors.player;
+      ctx.shadowBlur = 5;
+      ctx.stroke();
+      ctx.shadowBlur = 0; // reset shadow
+
+      // Determine eye offset based on direction
+      let eyeOffsetX = 0;
+      let eyeOffsetY = 0;
+      const offsetAmount = 3;
+      if (this.player.dir === 'up') eyeOffsetY = -offsetAmount;
+      else if (this.player.dir === 'down') eyeOffsetY = offsetAmount;
+      else if (this.player.dir === 'left') eyeOffsetX = -offsetAmount;
+      else if (this.player.dir === 'right') eyeOffsetX = offsetAmount;
+
+      // Draw glowing eye (HAL 9000 / Portal core style)
+      ctx.beginPath();
+      ctx.arc(eyeOffsetX, eyeOffsetY, 3.5, 0, Math.PI * 2);
+      ctx.fillStyle = '#FF2244'; // Neon red/pink eye
+      ctx.shadowColor = '#FF0022';
+      ctx.shadowBlur = 8;
+      ctx.fill();
+      
+      // Inner bright core
+      ctx.beginPath();
+      ctx.arc(eyeOffsetX, eyeOffsetY, 1.5, 0, Math.PI * 2);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.shadowBlur = 0;
+      ctx.fill();
+
+      ctx.restore();
+      
+      // Shield
       if (this.player.shield) {
+        ctx.beginPath();
+        ctx.arc(px, py, 14, 0, Math.PI * 2);
         ctx.strokeStyle = this.colors.perkShield;
         ctx.lineWidth = 2;
-        ctx.strokeRect(this.player.x * gridSize - 12, this.player.y * gridSize - 12, 24, 24);
+        ctx.stroke();
+        ctx.fillStyle = this.colors.perkShield + '33'; // 20% opacity fill
+        ctx.fill();
       }
     }
 
