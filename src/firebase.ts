@@ -11,4 +11,5 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app);
+// Käytetään käyttäjän nimettyä tietokantaa oletuksen (default) sijaan
+export const db = getFirestore(app, "ai-studio-9b4c2e97-b74b-4e1d-a566-ccafac43195d");
