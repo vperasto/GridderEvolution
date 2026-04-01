@@ -200,11 +200,11 @@ export default function App() {
     engineRef.current?.start(startLevel);
   };
 
-  const submitScore = async (e: React.FormEvent) => {
+  const submitScore = (e: React.FormEvent) => {
     e.preventDefault();
     if (playerName.length > 0) {
-      await saveHighScore(playerName, score);
-      engineRef.current?.init(); // Go back to title
+      saveHighScore(playerName, score); // Fire and forget, Firebase handles it in background
+      engineRef.current?.init(); // Go back to title immediately
     }
   };
 
