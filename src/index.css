@@ -40,6 +40,52 @@ body {
   animation: pulse-text 1.5s infinite;
 }
 
+@keyframes glory-halo {
+  0% { box-shadow: 0 0 20px 5px rgba(238, 238, 119, 0.2), 0 0 40px 10px rgba(238, 238, 119, 0.1); }
+  50% { box-shadow: 0 0 40px 15px rgba(238, 238, 119, 0.4), 0 0 80px 20px rgba(238, 238, 119, 0.2); }
+  100% { box-shadow: 0 0 20px 5px rgba(238, 238, 119, 0.2), 0 0 40px 10px rgba(238, 238, 119, 0.1); }
+}
+
+.animate-glory-halo {
+  animation: glory-halo 3s ease-in-out infinite;
+}
+
+@keyframes glory-rays {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.glory-rays-container {
+  position: absolute;
+  inset: -50%;
+  background: conic-gradient(from 0deg, transparent 0deg, rgba(238, 238, 119, 0.1) 15deg, transparent 30deg, rgba(238, 238, 119, 0.1) 45deg, transparent 60deg, rgba(238, 238, 119, 0.1) 75deg, transparent 90deg, rgba(238, 238, 119, 0.1) 105deg, transparent 120deg, rgba(238, 238, 119, 0.1) 135deg, transparent 150deg, rgba(238, 238, 119, 0.1) 165deg, transparent 180deg, rgba(238, 238, 119, 0.1) 195deg, transparent 210deg, rgba(238, 238, 119, 0.1) 225deg, transparent 240deg, rgba(238, 238, 119, 0.1) 255deg, transparent 270deg, rgba(238, 238, 119, 0.1) 285deg, transparent 300deg, rgba(238, 238, 119, 0.1) 315deg, transparent 330deg, rgba(238, 238, 119, 0.1) 345deg, transparent 360deg);
+  animation: glory-rays 20s linear infinite;
+  pointer-events: none;
+  z-index: -1;
+  mask-image: radial-gradient(circle, black 30%, transparent 70%);
+  -webkit-mask-image: radial-gradient(circle, black 30%, transparent 70%);
+}
+
 canvas {
   image-rendering: pixelated;
+}
+
+/* Custom Scrollbar for Info Modal */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid #333;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #0088FF;
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #AAFFEE;
 }

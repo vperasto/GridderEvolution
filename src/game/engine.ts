@@ -400,9 +400,9 @@ export class GameEngine {
       this.enemies.push({
         x: ex, y: ey, 
         startX: ex, startY: ey,
-        type: (this.level > 2 && Math.random() > 0.7) ? 'stalker' : 'spark',
+        type: type,
         dir: 'up',
-        speed: Math.min(1.2, 0.7 + (this.level * 0.03)), // Capped below player speed (1.4)
+        speed: type === 'stalker' ? 2 : Math.min(1.2, 0.7 + (this.level * 0.03)), // Capped below player speed (1.4)
         state: 'moving',
         freezeTimer: 0
       });
@@ -440,7 +440,7 @@ export class GameEngine {
 
     this.player.nextDir = dir;
     if (this.player.dir === 'idle') {
-      if (this.canMove(this.player.x, this.player.y, dir)) {
+      if (this.canMove(this.player.x, this.player.y, dir, true)) {
         this.player.dir = dir;
         this.player.nextDir = 'idle';
       }
@@ -918,7 +918,7 @@ export class GameEngine {
   moveEntity(ent: any, dist: number, isPlayer: boolean) {
     if (ent.dir === 'idle') {
       if (isPlayer && ent.nextDir !== 'idle') {
-        if (this.canMove(ent.x, ent.y, ent.nextDir)) {
+        if (this.canMove(ent.x, ent.y, ent.nextDir, isPlayer)) {
           ent.dir = ent.nextDir;
           ent.nextDir = 'idle';
         }
@@ -966,7 +966,7 @@ export class GameEngine {
       moved += step;
 
       // Check cuts for all entities
-      if (ent.type !== 'projectile' && ent.type !== 'web') {
+      if (!isPlayer && ent.type !== 'projectile' && ent.type !== 'web') {
         for (const cut of this.cuts) {
           let hit = false;
           const eps = 0.001;
@@ -1014,10 +1014,10 @@ export class GameEngine {
           this.player.lastNode = { x: ent.x, y: ent.y };
           audio.playMove();
 
-          if (ent.nextDir !== 'idle' && this.canMove(ent.x, ent.y, ent.nextDir)) {
+          if (ent.nextDir !== 'idle' && this.canMove(ent.x, ent.y, ent.nextDir, isPlayer)) {
             ent.dir = ent.nextDir;
             ent.nextDir = 'idle';
-          } else if (!this.canMove(ent.x, ent.y, ent.dir)) {
+          } else if (!this.canMove(ent.x, ent.y, ent.dir, isPlayer)) {
             ent.dir = 'idle';
             break; // Stop moving if we hit a wall
           }
@@ -1090,7 +1090,7 @@ export class GameEngine {
     }
   }
 
-  canMove(x: number, y: number, dir: Dir) {
+  canMove(x: number, y: number, dir: Dir, isPlayer: boolean = false) {
     const isAtIntersectionX = Math.abs(x - Math.round(x)) < 0.001;
     const isAtIntersectionY = Math.abs(y - Math.round(y)) < 0.001;
     
@@ -1105,9 +1105,11 @@ export class GameEngine {
     if (dir === 'right') nx += 1;
     
     // Check if the target node has a cut
-    for (const cut of this.cuts) {
-      if (Math.abs(cut.x - nx) < 0.001 && Math.abs(cut.y - ny) < 0.001) {
-        return false;
+    if (!isPlayer) {
+      for (const cut of this.cuts) {
+        if (Math.abs(cut.x - nx) < 0.001 && Math.abs(cut.y - ny) < 0.001) {
+          return false;
+        }
       }
     }
 

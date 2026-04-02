@@ -187,7 +187,7 @@ export default function App() {
   const [dismissPortraitWarning, setDismissPortraitWarning] = useState(false);
   const [showHighScores, setShowHighScores] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
-  const [infoTab, setInfoTab] = useState<'about' | 'player' | 'enemies' | 'perks'>('about');
+  const [infoTab, setInfoTab] = useState<'about' | 'player' | 'enemies' | 'perks' | 'test'>('about');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   useEffect(() => {
@@ -658,18 +658,18 @@ export default function App() {
             {/* Info Modal */}
             {showInfo && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/90 z-[200] p-4">
-                <div className="border-2 border-gray-400 bg-black p-6 w-full max-w-md flex flex-col max-h-[80vh]">
-                  <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-xl md:text-2xl text-gray-300 font-bold">{t.infoTitle}</h2>
+                <div className="border-2 border-gray-400 bg-black p-6 md:p-8 w-full max-w-4xl flex flex-col max-h-[85vh]">
+                  <div className="flex justify-between items-center mb-4 md:mb-6">
+                    <h2 className="text-xl md:text-3xl text-gray-300 font-bold">{t.infoTitle}</h2>
                     <button 
                       onClick={() => setShowInfo(false)}
-                      className="text-[#FF7777] hover:text-white text-3xl font-bold leading-none"
+                      className="text-[#FF7777] hover:text-white text-3xl md:text-4xl font-bold leading-none"
                     >
                       &times;
                     </button>
                   </div>
 
-                  <div className="flex gap-4 mb-4 border-b border-gray-800 pb-2 overflow-x-auto whitespace-nowrap">
+                  <div className="flex gap-4 md:gap-8 mb-4 md:mb-6 border-b border-gray-800 pb-2 md:pb-4 overflow-x-auto whitespace-nowrap custom-scrollbar">
                     <button
                       onClick={() => setInfoTab('about')}
                       className={`text-sm md:text-base font-bold transition-colors ${infoTab === 'about' ? 'text-[#AAFFEE]' : 'text-gray-500 hover:text-gray-300'}`}
@@ -694,62 +694,79 @@ export default function App() {
                     >
                       {t.infoTabPerks}
                     </button>
+                    <button
+                      onClick={() => setInfoTab('test')}
+                      className={`text-sm md:text-base font-bold transition-colors ${infoTab === 'test' ? 'text-[#AAFFEE]' : 'text-gray-500 hover:text-gray-300'}`}
+                    >
+                      {t.infoTabTest}
+                    </button>
                   </div>
                   
-                  <div className="overflow-y-auto flex-1 pr-2 text-gray-400 text-sm md:text-base space-y-4">
+                  <div className="overflow-y-auto flex-1 pr-2 md:pr-4 text-gray-400 text-sm md:text-base space-y-4 md:space-y-6 custom-scrollbar">
                     {infoTab === 'about' ? (
-                      <>
-                        <p className="text-white leading-relaxed">
+                      <div className="max-w-2xl mx-auto space-y-6">
+                        <p className="text-white leading-relaxed md:text-lg">
                           {t.infoDesc}
                         </p>
-                        <p className="text-[#AAFFEE]">
+                        <p className="text-[#AAFFEE] md:text-lg">
                           {t.infoMusic}
                         </p>
+
+                        <div className="pt-6 border-t border-gray-800 text-xs md:text-sm text-gray-500 text-center space-y-2">
+                          <p>{t.infoCopyright}</p>
+                          <p dangerouslySetInnerHTML={{ __html: t.infoContact }} />
+                        </div>
+                      </div>
+                    ) : infoTab === 'test' ? (
+                      <div className="max-w-2xl mx-auto space-y-6">
+                        <p className="text-white leading-relaxed md:text-lg">
+                          {t.testDesc}
+                        </p>
+                        <p className="text-[#FF7777] font-bold">
+                          {t.testWarning}
+                        </p>
                         
-                        <div className="pt-4 border-t border-gray-800 mt-4">
-                          <div className="flex flex-col items-center gap-2">
-                            <label className="text-[#AAFFEE] text-xs md:text-sm">{t.testLevel}</label>
-                            <div className="flex items-center gap-2">
+                        <div className="pt-6 border-t border-gray-800 mt-8">
+                          <div className="flex flex-col items-center gap-4">
+                            <label className="text-[#AAFFEE] text-sm md:text-base">{t.testLevel}</label>
+                            <div className="flex items-center gap-4">
                               <input
                                 type="number"
                                 min="1"
                                 max="100"
                                 value={startLevel}
                                 onChange={(e) => setStartLevel(Math.max(1, parseInt(e.target.value) || 1))}
-                                className="bg-transparent border-2 border-[#0088FF] text-center text-lg text-white w-16 p-1 outline-none"
+                                className="bg-transparent border-2 border-[#0088FF] text-center text-xl text-white w-20 p-2 outline-none"
                               />
                               <button 
                                 onClick={() => { setShowInfo(false); startGame(); }}
-                                className="px-4 py-1 border-2 border-[#0088FF] text-[#0088FF] font-bold hover:bg-[#0088FF] hover:text-black transition-colors"
+                                className="px-6 py-2 border-2 border-[#0088FF] text-[#0088FF] text-lg font-bold hover:bg-[#0088FF] hover:text-black transition-colors"
                               >
                                 {t.start}
                               </button>
                             </div>
                           </div>
                         </div>
-
-                        <div className="pt-4 border-t border-gray-800 text-xs text-gray-500 text-center">
-                          {t.infoCopyright}
-                        </div>
-                      </>
+                      </div>
                     ) : infoTab === 'player' ? (
-                      <div className="space-y-6">
-                        <div>
-                          <h3 className="text-lg text-white font-bold mb-3 border-b border-gray-800 pb-1">{t.playerHeader}</h3>
-                          <div className="flex items-start gap-3 mb-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
+                        <div className="md:col-span-2">
+                          <h3 className="text-lg md:text-xl text-white font-bold mb-3 md:mb-4 border-b border-gray-800 pb-2">{t.playerHeader}</h3>
+                          <div className="flex items-start gap-4 mb-4">
                             <EntityCanvas type="player" />
-                            <div className="text-sm text-gray-400 mt-1">{t.playerDesc}</div>
+                            <div className="text-sm md:text-base text-gray-400 mt-1">{t.playerDesc}</div>
                           </div>
                         </div>
                         <div>
-                          <h3 className="text-lg text-white font-bold mb-3 border-b border-gray-800 pb-1">{t.playerMoveHeader}</h3>
-                          <div className="text-sm text-gray-400 whitespace-pre-line leading-relaxed">
-                            {t.playerMoveDesc}
-                          </div>
+                          <h3 className="text-lg md:text-xl text-white font-bold mb-3 md:mb-4 border-b border-gray-800 pb-2">{t.playerMoveHeader}</h3>
+                          <div 
+                            className="text-sm md:text-base text-gray-400 whitespace-pre-line leading-relaxed"
+                            dangerouslySetInnerHTML={{ __html: t.playerMoveDesc }}
+                          />
                         </div>
                         <div>
-                          <h3 className="text-lg text-white font-bold mb-3 border-b border-gray-800 pb-1">{t.glitchHeader}</h3>
-                          <div className="text-sm text-gray-400 whitespace-pre-line leading-relaxed">
+                          <h3 className="text-lg md:text-xl text-white font-bold mb-3 md:mb-4 border-b border-gray-800 pb-2">{t.glitchHeader}</h3>
+                          <div className="text-sm md:text-base text-gray-400 whitespace-pre-line leading-relaxed">
                             {t.glitchDesc}
                           </div>
                         </div>
@@ -757,58 +774,58 @@ export default function App() {
                     ) : infoTab === 'perks' ? (
                       <div className="space-y-6">
                         <div>
-                          <h3 className="text-lg text-white font-bold mb-3 border-b border-gray-800 pb-1">{t.perksHeader}</h3>
-                          <p className="text-sm text-gray-400 mb-4">{t.perksDesc}</p>
-                          <div className="space-y-3">
-                            <div className="flex items-start gap-3">
+                          <h3 className="text-lg md:text-xl text-white font-bold mb-3 md:mb-4 border-b border-gray-800 pb-2">{t.perksHeader}</h3>
+                          <p className="text-sm md:text-base text-gray-400 mb-6">{t.perksDesc}</p>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                            <div className="flex items-start gap-3 md:gap-4">
                               <EntityCanvas type="perk" color="#FF7777" />
                               <div className="mt-1">
-                                <div className="text-[#FF7777] font-bold">{t.perkSpeed}</div>
-                                <div className="text-sm text-gray-400">{t.perkSpeedDesc}</div>
+                                <div className="text-[#FF7777] font-bold md:text-lg">{t.perkSpeed}</div>
+                                <div className="text-sm md:text-base text-gray-400">{t.perkSpeedDesc}</div>
                               </div>
                             </div>
-                            <div className="flex items-start gap-3">
+                            <div className="flex items-start gap-3 md:gap-4">
                               <EntityCanvas type="perk" color="#0088FF" />
                               <div className="mt-1">
-                                <div className="text-[#0088FF] font-bold">{t.perkFreeze}</div>
-                                <div className="text-sm text-gray-400">{t.perkFreezeDesc}</div>
+                                <div className="text-[#0088FF] font-bold md:text-lg">{t.perkFreeze}</div>
+                                <div className="text-sm md:text-base text-gray-400">{t.perkFreezeDesc}</div>
                               </div>
                             </div>
-                            <div className="flex items-start gap-3">
+                            <div className="flex items-start gap-3 md:gap-4">
                               <EntityCanvas type="perk" color="#CC44CC" />
                               <div className="mt-1">
-                                <div className="text-[#CC44CC] font-bold">{t.perkShield}</div>
-                                <div className="text-sm text-gray-400">{t.perkShieldDesc}</div>
+                                <div className="text-[#CC44CC] font-bold md:text-lg">{t.perkShield}</div>
+                                <div className="text-sm md:text-base text-gray-400">{t.perkShieldDesc}</div>
                               </div>
                             </div>
-                            <div className="flex items-start gap-3">
+                            <div className="flex items-start gap-3 md:gap-4">
                               <EntityCanvas type="perk" color="#00CC55" />
                               <div className="mt-1">
-                                <div className="text-[#00CC55] font-bold">{t.perkDouble}</div>
-                                <div className="text-sm text-gray-400">{t.perkDoubleDesc}</div>
+                                <div className="text-[#00CC55] font-bold md:text-lg">{t.perkDouble}</div>
+                                <div className="text-sm md:text-base text-gray-400">{t.perkDoubleDesc}</div>
                               </div>
                             </div>
                           </div>
                         </div>
                       </div>
                     ) : (
-                      <div className="space-y-6">
+                      <div className="space-y-8">
                         {/* Regular Enemies */}
                         <div>
-                          <h3 className="text-lg text-white font-bold mb-3 border-b border-gray-800 pb-1">{t.enemiesHeader}</h3>
-                          <div className="space-y-3">
-                            <div className="flex items-start gap-3">
+                          <h3 className="text-lg md:text-xl text-white font-bold mb-3 md:mb-4 border-b border-gray-800 pb-2">{t.enemiesHeader}</h3>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                            <div className="flex items-start gap-3 md:gap-4">
                               <EntityCanvas type="enemy" bossType="spark" />
                               <div className="mt-1">
-                                <div className="text-[#FF7777] font-bold">{t.enemySpark}</div>
-                                <div className="text-sm text-gray-400">{t.enemySparkDesc}</div>
+                                <div className="text-[#FF7777] font-bold md:text-lg">{t.enemySpark}</div>
+                                <div className="text-sm md:text-base text-gray-400">{t.enemySparkDesc}</div>
                               </div>
                             </div>
-                            <div className="flex items-start gap-3">
+                            <div className="flex items-start gap-3 md:gap-4">
                               <EntityCanvas type="enemy" bossType="stalker" />
                               <div className="mt-1">
-                                <div className="text-[#AAFFEE] font-bold">{t.enemyStalker}</div>
-                                <div className="text-sm text-gray-400">{t.enemyStalkerDesc}</div>
+                                <div className="text-[#AAFFEE] font-bold md:text-lg">{t.enemyStalker}</div>
+                                <div className="text-sm md:text-base text-gray-400">{t.enemyStalkerDesc}</div>
                               </div>
                             </div>
                           </div>
@@ -816,48 +833,48 @@ export default function App() {
 
                         {/* Bosses */}
                         <div>
-                          <h3 className="text-lg text-white font-bold mb-3 border-b border-gray-800 pb-1">{t.bossesHeader}</h3>
-                          <div className="space-y-3">
-                            <div className="flex items-start gap-3">
+                          <h3 className="text-lg md:text-xl text-white font-bold mb-3 md:mb-4 border-b border-gray-800 pb-2">{t.bossesHeader}</h3>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                            <div className="flex items-start gap-3 md:gap-4">
                               <EntityCanvas type="boss" bossType="classic" />
                               <div className="mt-1">
-                                <div className="text-[#CC44CC] font-bold">{t.bossClassic}</div>
-                                <div className="text-sm text-gray-400">{t.bossClassicDesc}</div>
+                                <div className="text-[#CC44CC] font-bold md:text-lg">{t.bossClassic}</div>
+                                <div className="text-sm md:text-base text-gray-400">{t.bossClassicDesc}</div>
                               </div>
                             </div>
-                            <div className="flex items-start gap-3">
+                            <div className="flex items-start gap-3 md:gap-4">
                               <EntityCanvas type="boss" bossType="weaver" />
                               <div className="mt-1">
-                                <div className="text-[#8A2BE2] font-bold">{t.bossWeaver}</div>
-                                <div className="text-sm text-gray-400">{t.bossWeaverDesc}</div>
+                                <div className="text-[#8A2BE2] font-bold md:text-lg">{t.bossWeaver}</div>
+                                <div className="text-sm md:text-base text-gray-400">{t.bossWeaverDesc}</div>
                               </div>
                             </div>
-                            <div className="flex items-start gap-3">
+                            <div className="flex items-start gap-3 md:gap-4">
                               <EntityCanvas type="boss" bossType="dasher" />
                               <div className="mt-1">
-                                <div className="text-[#FF4500] font-bold">{t.bossDasher}</div>
-                                <div className="text-sm text-gray-400">{t.bossDasherDesc}</div>
+                                <div className="text-[#FF4500] font-bold md:text-lg">{t.bossDasher}</div>
+                                <div className="text-sm md:text-base text-gray-400">{t.bossDasherDesc}</div>
                               </div>
                             </div>
-                            <div className="flex items-start gap-3">
+                            <div className="flex items-start gap-3 md:gap-4">
                               <EntityCanvas type="boss" bossType="splitter" />
                               <div className="mt-1">
-                                <div className="text-[#32CD32] font-bold">{t.bossSplitter}</div>
-                                <div className="text-sm text-gray-400">{t.bossSplitterDesc}</div>
+                                <div className="text-[#32CD32] font-bold md:text-lg">{t.bossSplitter}</div>
+                                <div className="text-sm md:text-base text-gray-400">{t.bossSplitterDesc}</div>
                               </div>
                             </div>
-                            <div className="flex items-start gap-3">
+                            <div className="flex items-start gap-3 md:gap-4">
                               <EntityCanvas type="boss" bossType="turret" />
                               <div className="mt-1">
-                                <div className="text-[#808080] font-bold">{t.bossTurret}</div>
-                                <div className="text-sm text-gray-400">{t.bossTurretDesc}</div>
+                                <div className="text-[#808080] font-bold md:text-lg">{t.bossTurret}</div>
+                                <div className="text-sm md:text-base text-gray-400">{t.bossTurretDesc}</div>
                               </div>
                             </div>
-                            <div className="flex items-start gap-3">
+                            <div className="flex items-start gap-3 md:gap-4">
                               <EntityCanvas type="boss" bossType="teleporter" />
                               <div className="mt-1">
-                                <div className="text-[#00FFFF] font-bold">{t.bossTeleporter}</div>
-                                <div className="text-sm text-gray-400">{t.bossTeleporterDesc}</div>
+                                <div className="text-[#00FFFF] font-bold md:text-lg">{t.bossTeleporter}</div>
+                                <div className="text-sm md:text-base text-gray-400">{t.bossTeleporterDesc}</div>
                               </div>
                             </div>
                           </div>
@@ -871,26 +888,30 @@ export default function App() {
 
             {/* High Scores Modal */}
             {showHighScores && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/90 z-[200] p-4">
-                <div className="border-2 border-[#AAFFEE] bg-black p-6 w-full max-w-sm flex flex-col max-h-[80vh]">
-                  <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-xl md:text-2xl text-[#AAFFEE] font-bold">{t.highScores}</h2>
+              <div className="absolute inset-0 flex items-center justify-center bg-black/90 z-[200] p-4 overflow-hidden">
+                <div className="relative border-2 border-[#EEEE77] bg-black p-6 w-full max-w-sm flex flex-col max-h-[80vh] animate-glory-halo">
+                  <div className="glory-rays-container"></div>
+                  <div className="relative z-10 flex justify-between items-center mb-6">
+                    <div className="flex flex-col">
+                      <span className="text-xs text-[#EEEE77] tracking-widest uppercase mb-1">Gridder Evolution</span>
+                      <h2 className="text-xl md:text-2xl text-white font-bold drop-shadow-[0_0_8px_rgba(238,238,119,0.8)]">{t.highScores}</h2>
+                    </div>
                     <button 
                       onClick={() => setShowHighScores(false)}
-                      className="text-[#FF7777] hover:text-white text-3xl font-bold leading-none"
+                      className="text-[#FF7777] hover:text-white text-3xl font-bold leading-none self-start"
                     >
                       &times;
                     </button>
                   </div>
                   
-                  <div className="overflow-y-auto flex-1 pr-2">
+                  <div className="relative z-10 overflow-y-auto flex-1 pr-2 custom-scrollbar">
                     {highScores.length === 0 ? (
                       <div className="text-sm text-gray-400 text-center py-4">-</div>
                     ) : (
                       highScores.map((hs, i) => (
                         <div key={i} className="text-sm md:text-lg flex justify-between w-full mb-2 border-b border-gray-800 pb-1">
                           <span className="text-white">{hs.name}</span>
-                          <span className="text-[#0088FF] font-bold">{hs.score}</span>
+                          <span className="text-[#EEEE77] font-bold drop-shadow-[0_0_5px_rgba(238,238,119,0.5)]">{hs.score}</span>
                         </div>
                       ))
                     )}
