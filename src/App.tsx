@@ -30,6 +30,7 @@ export default function App() {
   const [dismissPortraitWarning, setDismissPortraitWarning] = useState(false);
   const [showHighScores, setShowHighScores] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
+  const [infoTab, setInfoTab] = useState<'about' | 'enemies'>('about');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   useEffect(() => {
@@ -475,7 +476,7 @@ export default function App() {
             {showInfo && (
               <div className="absolute inset-0 flex items-center justify-center bg-black/90 z-[200] p-4">
                 <div className="border-2 border-gray-400 bg-black p-6 w-full max-w-md flex flex-col max-h-[80vh]">
-                  <div className="flex justify-between items-center mb-6">
+                  <div className="flex justify-between items-center mb-4">
                     <h2 className="text-xl md:text-2xl text-gray-300 font-bold">{t.infoTitle}</h2>
                     <button 
                       onClick={() => setShowInfo(false)}
@@ -484,40 +485,131 @@ export default function App() {
                       &times;
                     </button>
                   </div>
+
+                  <div className="flex gap-4 mb-4 border-b border-gray-800 pb-2">
+                    <button
+                      onClick={() => setInfoTab('about')}
+                      className={`text-sm md:text-base font-bold transition-colors ${infoTab === 'about' ? 'text-[#AAFFEE]' : 'text-gray-500 hover:text-gray-300'}`}
+                    >
+                      {t.infoTabAbout}
+                    </button>
+                    <button
+                      onClick={() => setInfoTab('enemies')}
+                      className={`text-sm md:text-base font-bold transition-colors ${infoTab === 'enemies' ? 'text-[#AAFFEE]' : 'text-gray-500 hover:text-gray-300'}`}
+                    >
+                      {t.infoTabEnemies}
+                    </button>
+                  </div>
                   
                   <div className="overflow-y-auto flex-1 pr-2 text-gray-400 text-sm md:text-base space-y-4">
-                    <p className="text-white leading-relaxed">
-                      {t.infoDesc}
-                    </p>
-                    <p className="text-[#AAFFEE]">
-                      {t.infoMusic}
-                    </p>
-                    
-                    <div className="pt-4 border-t border-gray-800 mt-4">
-                      <div className="flex flex-col items-center gap-2">
-                        <label className="text-[#AAFFEE] text-xs md:text-sm">{t.testLevel}</label>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="number"
-                            min="1"
-                            max="100"
-                            value={startLevel}
-                            onChange={(e) => setStartLevel(Math.max(1, parseInt(e.target.value) || 1))}
-                            className="bg-transparent border-2 border-[#0088FF] text-center text-lg text-white w-16 p-1 outline-none"
-                          />
-                          <button 
-                            onClick={() => { setShowInfo(false); startGame(); }}
-                            className="px-4 py-1 border-2 border-[#0088FF] text-[#0088FF] font-bold hover:bg-[#0088FF] hover:text-black transition-colors"
-                          >
-                            {t.start}
-                          </button>
+                    {infoTab === 'about' ? (
+                      <>
+                        <p className="text-white leading-relaxed">
+                          {t.infoDesc}
+                        </p>
+                        <p className="text-[#AAFFEE]">
+                          {t.infoMusic}
+                        </p>
+                        
+                        <div className="pt-4 border-t border-gray-800 mt-4">
+                          <div className="flex flex-col items-center gap-2">
+                            <label className="text-[#AAFFEE] text-xs md:text-sm">{t.testLevel}</label>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="number"
+                                min="1"
+                                max="100"
+                                value={startLevel}
+                                onChange={(e) => setStartLevel(Math.max(1, parseInt(e.target.value) || 1))}
+                                className="bg-transparent border-2 border-[#0088FF] text-center text-lg text-white w-16 p-1 outline-none"
+                              />
+                              <button 
+                                onClick={() => { setShowInfo(false); startGame(); }}
+                                className="px-4 py-1 border-2 border-[#0088FF] text-[#0088FF] font-bold hover:bg-[#0088FF] hover:text-black transition-colors"
+                              >
+                                {t.start}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="pt-4 border-t border-gray-800 text-xs text-gray-500 text-center">
+                          {t.infoCopyright}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="space-y-6">
+                        {/* Regular Enemies */}
+                        <div>
+                          <h3 className="text-lg text-white font-bold mb-3 border-b border-gray-800 pb-1">{t.enemiesHeader}</h3>
+                          <div className="space-y-3">
+                            <div className="flex items-start gap-3">
+                              <div className="w-4 h-4 mt-1 bg-[#FF7777] shrink-0" />
+                              <div>
+                                <div className="text-[#FF7777] font-bold">{t.enemySpark}</div>
+                                <div className="text-sm text-gray-400">{t.enemySparkDesc}</div>
+                              </div>
+                            </div>
+                            <div className="flex items-start gap-3">
+                              <div className="w-4 h-4 mt-1 bg-[#AAFFEE] shrink-0" />
+                              <div>
+                                <div className="text-[#AAFFEE] font-bold">{t.enemyStalker}</div>
+                                <div className="text-sm text-gray-400">{t.enemyStalkerDesc}</div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Bosses */}
+                        <div>
+                          <h3 className="text-lg text-white font-bold mb-3 border-b border-gray-800 pb-1">{t.bossesHeader}</h3>
+                          <div className="space-y-3">
+                            <div className="flex items-start gap-3">
+                              <div className="w-6 h-6 mt-0.5 bg-[#CC44CC] shrink-0" />
+                              <div>
+                                <div className="text-[#CC44CC] font-bold">{t.bossClassic}</div>
+                                <div className="text-sm text-gray-400">{t.bossClassicDesc}</div>
+                              </div>
+                            </div>
+                            <div className="flex items-start gap-3">
+                              <div className="w-6 h-6 mt-0.5 bg-[#8A2BE2] shrink-0 rounded-full" />
+                              <div>
+                                <div className="text-[#8A2BE2] font-bold">{t.bossWeaver}</div>
+                                <div className="text-sm text-gray-400">{t.bossWeaverDesc}</div>
+                              </div>
+                            </div>
+                            <div className="flex items-start gap-3">
+                              <div className="w-6 h-6 mt-0.5 bg-[#FF4500] shrink-0" />
+                              <div>
+                                <div className="text-[#FF4500] font-bold">{t.bossDasher}</div>
+                                <div className="text-sm text-gray-400">{t.bossDasherDesc}</div>
+                              </div>
+                            </div>
+                            <div className="flex items-start gap-3">
+                              <div className="w-6 h-6 mt-0.5 bg-[#32CD32] shrink-0" />
+                              <div>
+                                <div className="text-[#32CD32] font-bold">{t.bossSplitter}</div>
+                                <div className="text-sm text-gray-400">{t.bossSplitterDesc}</div>
+                              </div>
+                            </div>
+                            <div className="flex items-start gap-3">
+                              <div className="w-6 h-6 mt-0.5 bg-[#808080] shrink-0" />
+                              <div>
+                                <div className="text-[#808080] font-bold">{t.bossTurret}</div>
+                                <div className="text-sm text-gray-400">{t.bossTurretDesc}</div>
+                              </div>
+                            </div>
+                            <div className="flex items-start gap-3">
+                              <div className="w-6 h-6 mt-0.5 bg-[#00FFFF] shrink-0" />
+                              <div>
+                                <div className="text-[#00FFFF] font-bold">{t.bossTeleporter}</div>
+                                <div className="text-sm text-gray-400">{t.bossTeleporterDesc}</div>
+                              </div>
+                            </div>
+                          </div>
                         </div>
                       </div>
-                    </div>
-
-                    <div className="pt-4 border-t border-gray-800 text-xs text-gray-500 text-center">
-                      {t.infoCopyright}
-                    </div>
+                    )}
                   </div>
                 </div>
               </div>
