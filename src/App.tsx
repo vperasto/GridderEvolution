@@ -3,6 +3,9 @@ import { GameEngine, Dir } from './game/engine';
 import { audio } from './game/audio';
 import { getHighScores, saveHighScore, subscribeToHighScores, translations, Language, HighScore } from './game/meta';
 import { Volume2, VolumeX, Maximize, Minimize, Pause, Play, Eye, Trophy, Heart, Layers, Timer, Zap, Settings } from 'lucide-react';
+// KUVAT KOMMENTOITU PIILOON GITHUB-VIENTIÄ VARTEN:
+// import gameOverImg from './img/game-over.png';
+// import menuBgImg from './img/menu-bg.png';
 
 const EntityCanvas = ({ type, bossType, color }: { type: string, bossType?: string, color?: string }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -609,37 +612,47 @@ export default function App() {
 
         {/* Title Screen */}
         {gameState === 'title' && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 pointer-events-auto py-4 px-4 overflow-hidden">
-            <h1 className="text-3xl sm:text-4xl md:text-6xl font-bold text-[#EEEE77] mb-6 md:mb-10 tracking-widest drop-shadow-[0_0_15px_rgba(238,238,119,0.8)] text-center leading-tight">
-              GRIDDER<br/>EVOLUTION
-            </h1>
-            
-            <div className="flex flex-col items-center gap-4 md:gap-8">
-              <button 
-                onClick={startGame}
-                className="px-8 py-3 md:px-12 md:py-4 border-4 border-[#0088FF] text-[#0088FF] text-xl md:text-2xl font-bold hover:bg-[#0088FF] hover:text-black transition-colors animate-pulse-text"
-              >
-                {t.start}
-              </button>
+          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-auto py-4 px-4 overflow-hidden">
+            {/* Background Image with Overlay */}
+            <div 
+              className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+              // style={{ backgroundImage: `url(${menuBgImg})` }}
+            />
+            <div className="absolute inset-0 bg-black/70" /> {/* Dark overlay */}
 
-              <div className="flex items-center gap-4">
+            {/* Content Box */}
+            <div className="relative z-10 flex flex-col items-center justify-center p-8 border-4 border-[#0088FF] bg-black/60 backdrop-blur-sm shadow-[0_0_30px_rgba(0,136,255,0.5)]">
+              <h1 className="text-3xl sm:text-4xl md:text-6xl font-bold text-[#EEEE77] mb-6 md:mb-10 tracking-widest drop-shadow-[0_0_15px_rgba(238,238,119,0.8)] text-center leading-tight">
+                GRIDDER<br/>EVOLUTION
+              </h1>
+              
+              <div className="flex flex-col items-center gap-4 md:gap-8">
                 <button 
-                  onClick={() => setShowHighScores(true)}
-                  className="px-4 py-2 border-2 border-[#AAFFEE] text-[#AAFFEE] text-sm md:text-base font-bold hover:bg-[#AAFFEE] hover:text-black transition-colors h-[42px]"
+                  onClick={startGame}
+                  className="px-8 py-3 md:px-12 md:py-4 border-4 border-[#0088FF] text-[#0088FF] text-xl md:text-2xl font-bold hover:bg-[#0088FF] hover:text-black transition-colors animate-pulse-text"
                 >
-                  {t.highScores}
+                  {t.start}
                 </button>
 
-                <button 
-                  onClick={() => setShowInfo(true)}
-                  className="px-4 py-2 border-2 border-gray-400 text-gray-400 text-sm md:text-base font-bold hover:bg-gray-400 hover:text-black transition-colors h-[42px]"
-                >
-                  {t.info}
-                </button>
+                <div className="flex items-center gap-4">
+                  <button 
+                    onClick={() => setShowHighScores(true)}
+                    className="px-4 py-2 border-2 border-[#AAFFEE] text-[#AAFFEE] text-sm md:text-base font-bold hover:bg-[#AAFFEE] hover:text-black transition-colors h-[42px]"
+                  >
+                    {t.highScores}
+                  </button>
+
+                  <button 
+                    onClick={() => setShowInfo(true)}
+                    className="px-4 py-2 border-2 border-gray-400 text-gray-400 text-sm md:text-base font-bold hover:bg-gray-400 hover:text-black transition-colors h-[42px]"
+                  >
+                    {t.info}
+                  </button>
+                </div>
               </div>
             </div>
             
-            <div className="absolute bottom-2 text-[10px] md:text-xs text-gray-500 text-center w-full max-w-md px-4">
+            <div className="absolute bottom-2 text-[10px] md:text-xs text-gray-500 text-center w-full max-w-md px-4 z-10">
               {t.controls}
             </div>
 
@@ -891,38 +904,48 @@ export default function App() {
 
         {/* Game Over Screen */}
         {gameState === 'gameover' && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/90 pointer-events-auto">
-            <h2 className="text-4xl md:text-6xl font-bold text-[#FF7777] mb-8 animate-pulse-text drop-shadow-[0_0_15px_rgba(255,119,119,0.8)]">
-              {t.gameOver}
-            </h2>
-            <div className="text-2xl text-[#EEEE77] mb-12">{t.score}: {score}</div>
-            
-            {startLevel > 1 ? (
-              <div className="flex flex-col items-center">
-                <p className="text-[#FF7777] mb-8 text-xl">{t.testModeNoScore}</p>
-                <button 
-                  onClick={() => engineRef.current?.init()} 
-                  className="px-8 py-4 border-4 border-[#AAFFEE] text-[#AAFFEE] text-xl font-bold hover:bg-[#AAFFEE] hover:text-black transition-colors"
-                >
-                  {t.returnToTitle}
-                </button>
-              </div>
-            ) : (
-              <form onSubmit={submitScore} className="flex flex-col items-center">
-                <label className="text-sm md:text-base mb-4 text-[#AAFFEE]">{t.enterName}</label>
-                <input 
-                  type="text" 
-                  maxLength={3}
-                  value={playerName}
-                  onChange={e => setPlayerName(e.target.value.toUpperCase())}
-                  className="bg-transparent border-b-4 border-[#AAFFEE] text-center text-3xl text-white w-32 outline-none mb-8 uppercase"
-                  autoFocus
-                />
-                <button type="submit" className="px-8 py-4 border-4 border-[#AAFFEE] text-[#AAFFEE] text-xl font-bold hover:bg-[#AAFFEE] hover:text-black transition-colors">
-                  OK
-                </button>
-              </form>
-            )}
+          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-auto">
+            {/* Background Image with Overlay */}
+            <div 
+              className="absolute inset-0 bg-cover bg-center bg-no-repeat"
+              // style={{ backgroundImage: `url(${gameOverImg})` }}
+            />
+            <div className="absolute inset-0 bg-black/70" /> {/* Dark overlay */}
+
+            {/* Content Box */}
+            <div className="relative z-10 flex flex-col items-center justify-center p-8 border-4 border-[#FF7777] bg-black/60 backdrop-blur-sm shadow-[0_0_30px_rgba(255,119,119,0.5)]">
+              <h2 className="text-4xl md:text-6xl font-bold text-[#FF7777] mb-8 animate-pulse-text drop-shadow-[0_0_15px_rgba(255,119,119,0.8)]">
+                {t.gameOver}
+              </h2>
+              <div className="text-2xl text-[#EEEE77] mb-12">{t.score}: {score}</div>
+              
+              {startLevel > 1 ? (
+                <div className="flex flex-col items-center">
+                  <p className="text-[#FF7777] mb-8 text-xl">{t.testModeNoScore}</p>
+                  <button 
+                    onClick={() => engineRef.current?.init()} 
+                    className="px-8 py-4 border-4 border-[#AAFFEE] text-[#AAFFEE] text-xl font-bold hover:bg-[#AAFFEE] hover:text-black transition-colors"
+                  >
+                    {t.returnToTitle}
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={submitScore} className="flex flex-col items-center">
+                  <label className="text-sm md:text-base mb-4 text-[#AAFFEE]">{t.enterName}</label>
+                  <input 
+                    type="text" 
+                    maxLength={3}
+                    value={playerName}
+                    onChange={e => setPlayerName(e.target.value.toUpperCase())}
+                    className="bg-transparent border-b-4 border-[#AAFFEE] text-center text-3xl text-white w-32 outline-none mb-8 uppercase"
+                    autoFocus
+                  />
+                  <button type="submit" className="px-8 py-4 border-4 border-[#AAFFEE] text-[#AAFFEE] text-xl font-bold hover:bg-[#AAFFEE] hover:text-black transition-colors">
+                    OK
+                  </button>
+                </form>
+              )}
+            </div>
           </div>
         )}
 
