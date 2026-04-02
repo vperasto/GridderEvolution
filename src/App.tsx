@@ -3,9 +3,8 @@ import { GameEngine, Dir } from './game/engine';
 import { audio } from './game/audio';
 import { getHighScores, saveHighScore, subscribeToHighScores, translations, Language, HighScore } from './game/meta';
 import { Volume2, VolumeX, Maximize, Minimize, Pause, Play, Eye, Trophy, Heart, Layers, Timer, Zap, Settings } from 'lucide-react';
-// KUVAT KOMMENTOITU PIILOON GITHUB-VIENTIÄ VARTEN:
-// import gameOverImg from './img/game-over.png';
-// import menuBgImg from './img/menu-bg.png';
+import gameOverImg from './img/game-over.png';
+import menuBgImg from './img/menu-bg.png';
 
 const EntityCanvas = ({ type, bossType, color }: { type: string, bossType?: string, color?: string }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -616,7 +615,7 @@ export default function App() {
             {/* Background Image with Overlay */}
             <div 
               className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-              // style={{ backgroundImage: `url(${menuBgImg})` }}
+              style={{ backgroundImage: `url(${menuBgImg})` }}
             />
             <div className="absolute inset-0 bg-black/70" /> {/* Dark overlay */}
 
@@ -908,7 +907,7 @@ export default function App() {
             {/* Background Image with Overlay */}
             <div 
               className="absolute inset-0 bg-cover bg-center bg-no-repeat"
-              // style={{ backgroundImage: `url(${gameOverImg})` }}
+              style={{ backgroundImage: `url(${gameOverImg})` }}
             />
             <div className="absolute inset-0 bg-black/70" /> {/* Dark overlay */}
 
