@@ -4,6 +4,161 @@ import { audio } from './game/audio';
 import { getHighScores, saveHighScore, subscribeToHighScores, translations, Language, HighScore } from './game/meta';
 import { Volume2, VolumeX, Maximize, Minimize, Pause, Play, Eye, Trophy, Heart, Layers, Timer, Zap, Settings } from 'lucide-react';
 
+const EntityCanvas = ({ type, bossType, color }: { type: string, bossType?: string, color?: string }) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const cx = canvas.width / 2;
+    const cy = canvas.height / 2;
+
+    ctx.save();
+    ctx.translate(cx, cy);
+
+    if (type === 'player') {
+      // Draw Octagon base (Drone body)
+      ctx.beginPath();
+      const octSize = 8;
+      const corner = octSize * 0.4;
+      ctx.moveTo(-octSize, -corner);
+      ctx.lineTo(-corner, -octSize);
+      ctx.lineTo(corner, -octSize);
+      ctx.lineTo(octSize, -corner);
+      ctx.lineTo(octSize, corner);
+      ctx.lineTo(corner, octSize);
+      ctx.lineTo(-corner, octSize);
+      ctx.lineTo(-octSize, corner);
+      ctx.closePath();
+      
+      ctx.fillStyle = '#111111';
+      ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#FFFF00';
+      ctx.shadowColor = '#FFFF00';
+      ctx.shadowBlur = 5;
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      // Draw glowing eye
+      ctx.beginPath();
+      ctx.arc(0, 0, 3.5, 0, Math.PI * 2);
+      ctx.fillStyle = '#FF2244';
+      ctx.shadowColor = '#FF0022';
+      ctx.shadowBlur = 8;
+      ctx.fill();
+      
+      ctx.beginPath();
+      ctx.arc(0, 0, 1.5, 0, Math.PI * 2);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.shadowBlur = 0;
+      ctx.fill();
+    } else if (type === 'perk') {
+      ctx.fillStyle = color || '#fff';
+      ctx.fillRect(-6, -6, 12, 12);
+    } else if (type === 'boss') {
+      const size = 10;
+      let bossColor = '#FF00FF';
+      if (bossType === 'weaver') bossColor = '#8A2BE2';
+      else if (bossType === 'dasher') bossColor = '#FF4500';
+      else if (bossType === 'splitter') bossColor = '#32CD32';
+      else if (bossType === 'turret') bossColor = '#808080';
+      else if (bossType === 'teleporter') bossColor = '#00FFFF';
+
+      ctx.fillStyle = bossColor;
+      
+      if (bossType === 'weaver') {
+        ctx.strokeStyle = bossColor;
+        ctx.lineWidth = 2;
+        for (let i = 0; i < 6; i++) {
+          const angle = (i / 6) * Math.PI * 2;
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.lineTo(Math.cos(angle) * size * 1.5, Math.sin(angle) * size * 1.5);
+          ctx.stroke();
+        }
+        ctx.beginPath();
+        ctx.arc(0, 0, size, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(-size*0.4, -size*0.4, size*0.2, size*0.2);
+        ctx.fillRect(size*0.2, -size*0.4, size*0.2, size*0.2);
+      } else if (bossType === 'classic') {
+        ctx.fillRect(-size, -size, size*2, size*2);
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(-size*0.6, -size*0.6, size*0.4, size*0.4);
+        ctx.fillRect(size*0.2, -size*0.6, size*0.4, size*0.4);
+        ctx.fillRect(-size*0.6, size*0.2, size*1.2, size*0.2);
+      } else if (bossType === 'dasher') {
+        ctx.beginPath();
+        ctx.moveTo(0, -size * 1.5);
+        ctx.lineTo(size * 1.5, 0);
+        ctx.lineTo(0, size * 1.5);
+        ctx.lineTo(-size * 1.5, 0);
+        ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(-size*0.2, -size*0.2, size*0.4, size*0.4);
+      } else if (bossType === 'splitter') {
+        ctx.beginPath();
+        ctx.ellipse(0, 0, size, size, 0, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(-size*0.3, -size*0.2, size*0.2, 0, Math.PI*2);
+        ctx.arc(size*0.3, -size*0.2, size*0.2, 0, Math.PI*2);
+        ctx.fill();
+      } else if (bossType === 'turret') {
+        ctx.fillRect(-size, -size, size*2, size*2);
+        ctx.fillStyle = '#333';
+        ctx.fillRect(-size*0.8, -size*0.8, size*1.6, size*1.6);
+        ctx.fillStyle = '#f00';
+        ctx.beginPath();
+        ctx.arc(0, 0, size*0.4, 0, Math.PI*2);
+        ctx.fill();
+      } else if (bossType === 'teleporter') {
+        ctx.globalAlpha = 0.8;
+        ctx.beginPath();
+        ctx.arc(0, 0, size * 0.8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = bossColor;
+        ctx.lineWidth = 2;
+        for (let i = 0; i < 8; i++) {
+          const angle = (i / 8) * Math.PI * 2;
+          ctx.beginPath();
+          ctx.moveTo(Math.cos(angle) * size * 0.5, Math.sin(angle) * size * 0.5);
+          ctx.quadraticCurveTo(
+            Math.cos(angle + 0.5) * size * 1.5, Math.sin(angle + 0.5) * size * 1.5,
+            Math.cos(angle) * size * 2, Math.sin(angle) * size * 2
+          );
+          ctx.stroke();
+        }
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = '#fff';
+        ctx.beginPath();
+        ctx.arc(0, 0, size * 0.3, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    } else if (type === 'enemy') {
+      const size = 10;
+      if (bossType === 'spark') {
+        ctx.fillStyle = '#FF7777';
+        ctx.fillRect(-size/2, -size/2, size, size);
+      } else if (bossType === 'stalker') {
+        ctx.fillStyle = '#AAFFEE';
+        ctx.fillRect(-size/2, -size/2, size, size);
+      }
+    }
+
+    ctx.restore();
+  }, [type, bossType, color]);
+
+  return <canvas ref={canvasRef} width={32} height={32} className="shrink-0" />;
+};
+
 export default function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const engineRef = useRef<GameEngine | null>(null);
@@ -30,7 +185,7 @@ export default function App() {
   const [dismissPortraitWarning, setDismissPortraitWarning] = useState(false);
   const [showHighScores, setShowHighScores] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
-  const [infoTab, setInfoTab] = useState<'about' | 'enemies'>('about');
+  const [infoTab, setInfoTab] = useState<'about' | 'player' | 'enemies' | 'perks'>('about');
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   useEffect(() => {
@@ -502,7 +657,7 @@ export default function App() {
                     </button>
                   </div>
 
-                  <div className="flex gap-4 mb-4 border-b border-gray-800 pb-2">
+                  <div className="flex gap-4 mb-4 border-b border-gray-800 pb-2 overflow-x-auto whitespace-nowrap">
                     <button
                       onClick={() => setInfoTab('about')}
                       className={`text-sm md:text-base font-bold transition-colors ${infoTab === 'about' ? 'text-[#AAFFEE]' : 'text-gray-500 hover:text-gray-300'}`}
@@ -510,10 +665,22 @@ export default function App() {
                       {t.infoTabAbout}
                     </button>
                     <button
+                      onClick={() => setInfoTab('player')}
+                      className={`text-sm md:text-base font-bold transition-colors ${infoTab === 'player' ? 'text-[#AAFFEE]' : 'text-gray-500 hover:text-gray-300'}`}
+                    >
+                      {t.infoTabPlayer}
+                    </button>
+                    <button
                       onClick={() => setInfoTab('enemies')}
                       className={`text-sm md:text-base font-bold transition-colors ${infoTab === 'enemies' ? 'text-[#AAFFEE]' : 'text-gray-500 hover:text-gray-300'}`}
                     >
                       {t.infoTabEnemies}
+                    </button>
+                    <button
+                      onClick={() => setInfoTab('perks')}
+                      className={`text-sm md:text-base font-bold transition-colors ${infoTab === 'perks' ? 'text-[#AAFFEE]' : 'text-gray-500 hover:text-gray-300'}`}
+                    >
+                      {t.infoTabPerks}
                     </button>
                   </div>
                   
@@ -553,6 +720,65 @@ export default function App() {
                           {t.infoCopyright}
                         </div>
                       </>
+                    ) : infoTab === 'player' ? (
+                      <div className="space-y-6">
+                        <div>
+                          <h3 className="text-lg text-white font-bold mb-3 border-b border-gray-800 pb-1">{t.playerHeader}</h3>
+                          <div className="flex items-start gap-3 mb-4">
+                            <EntityCanvas type="player" />
+                            <div className="text-sm text-gray-400 mt-1">{t.playerDesc}</div>
+                          </div>
+                        </div>
+                        <div>
+                          <h3 className="text-lg text-white font-bold mb-3 border-b border-gray-800 pb-1">{t.playerMoveHeader}</h3>
+                          <div className="text-sm text-gray-400 whitespace-pre-line leading-relaxed">
+                            {t.playerMoveDesc}
+                          </div>
+                        </div>
+                        <div>
+                          <h3 className="text-lg text-white font-bold mb-3 border-b border-gray-800 pb-1">{t.glitchHeader}</h3>
+                          <div className="text-sm text-gray-400 whitespace-pre-line leading-relaxed">
+                            {t.glitchDesc}
+                          </div>
+                        </div>
+                      </div>
+                    ) : infoTab === 'perks' ? (
+                      <div className="space-y-6">
+                        <div>
+                          <h3 className="text-lg text-white font-bold mb-3 border-b border-gray-800 pb-1">{t.perksHeader}</h3>
+                          <p className="text-sm text-gray-400 mb-4">{t.perksDesc}</p>
+                          <div className="space-y-3">
+                            <div className="flex items-start gap-3">
+                              <EntityCanvas type="perk" color="#FF7777" />
+                              <div className="mt-1">
+                                <div className="text-[#FF7777] font-bold">{t.perkSpeed}</div>
+                                <div className="text-sm text-gray-400">{t.perkSpeedDesc}</div>
+                              </div>
+                            </div>
+                            <div className="flex items-start gap-3">
+                              <EntityCanvas type="perk" color="#0088FF" />
+                              <div className="mt-1">
+                                <div className="text-[#0088FF] font-bold">{t.perkFreeze}</div>
+                                <div className="text-sm text-gray-400">{t.perkFreezeDesc}</div>
+                              </div>
+                            </div>
+                            <div className="flex items-start gap-3">
+                              <EntityCanvas type="perk" color="#CC44CC" />
+                              <div className="mt-1">
+                                <div className="text-[#CC44CC] font-bold">{t.perkShield}</div>
+                                <div className="text-sm text-gray-400">{t.perkShieldDesc}</div>
+                              </div>
+                            </div>
+                            <div className="flex items-start gap-3">
+                              <EntityCanvas type="perk" color="#00CC55" />
+                              <div className="mt-1">
+                                <div className="text-[#00CC55] font-bold">{t.perkDouble}</div>
+                                <div className="text-sm text-gray-400">{t.perkDoubleDesc}</div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     ) : (
                       <div className="space-y-6">
                         {/* Regular Enemies */}
@@ -560,15 +786,15 @@ export default function App() {
                           <h3 className="text-lg text-white font-bold mb-3 border-b border-gray-800 pb-1">{t.enemiesHeader}</h3>
                           <div className="space-y-3">
                             <div className="flex items-start gap-3">
-                              <div className="w-4 h-4 mt-1 bg-[#FF7777] shrink-0" />
-                              <div>
+                              <EntityCanvas type="enemy" bossType="spark" />
+                              <div className="mt-1">
                                 <div className="text-[#FF7777] font-bold">{t.enemySpark}</div>
                                 <div className="text-sm text-gray-400">{t.enemySparkDesc}</div>
                               </div>
                             </div>
                             <div className="flex items-start gap-3">
-                              <div className="w-4 h-4 mt-1 bg-[#AAFFEE] shrink-0" />
-                              <div>
+                              <EntityCanvas type="enemy" bossType="stalker" />
+                              <div className="mt-1">
                                 <div className="text-[#AAFFEE] font-bold">{t.enemyStalker}</div>
                                 <div className="text-sm text-gray-400">{t.enemyStalkerDesc}</div>
                               </div>
@@ -581,43 +807,43 @@ export default function App() {
                           <h3 className="text-lg text-white font-bold mb-3 border-b border-gray-800 pb-1">{t.bossesHeader}</h3>
                           <div className="space-y-3">
                             <div className="flex items-start gap-3">
-                              <div className="w-6 h-6 mt-0.5 bg-[#CC44CC] shrink-0" />
-                              <div>
+                              <EntityCanvas type="boss" bossType="classic" />
+                              <div className="mt-1">
                                 <div className="text-[#CC44CC] font-bold">{t.bossClassic}</div>
                                 <div className="text-sm text-gray-400">{t.bossClassicDesc}</div>
                               </div>
                             </div>
                             <div className="flex items-start gap-3">
-                              <div className="w-6 h-6 mt-0.5 bg-[#8A2BE2] shrink-0 rounded-full" />
-                              <div>
+                              <EntityCanvas type="boss" bossType="weaver" />
+                              <div className="mt-1">
                                 <div className="text-[#8A2BE2] font-bold">{t.bossWeaver}</div>
                                 <div className="text-sm text-gray-400">{t.bossWeaverDesc}</div>
                               </div>
                             </div>
                             <div className="flex items-start gap-3">
-                              <div className="w-6 h-6 mt-0.5 bg-[#FF4500] shrink-0" />
-                              <div>
+                              <EntityCanvas type="boss" bossType="dasher" />
+                              <div className="mt-1">
                                 <div className="text-[#FF4500] font-bold">{t.bossDasher}</div>
                                 <div className="text-sm text-gray-400">{t.bossDasherDesc}</div>
                               </div>
                             </div>
                             <div className="flex items-start gap-3">
-                              <div className="w-6 h-6 mt-0.5 bg-[#32CD32] shrink-0" />
-                              <div>
+                              <EntityCanvas type="boss" bossType="splitter" />
+                              <div className="mt-1">
                                 <div className="text-[#32CD32] font-bold">{t.bossSplitter}</div>
                                 <div className="text-sm text-gray-400">{t.bossSplitterDesc}</div>
                               </div>
                             </div>
                             <div className="flex items-start gap-3">
-                              <div className="w-6 h-6 mt-0.5 bg-[#808080] shrink-0" />
-                              <div>
+                              <EntityCanvas type="boss" bossType="turret" />
+                              <div className="mt-1">
                                 <div className="text-[#808080] font-bold">{t.bossTurret}</div>
                                 <div className="text-sm text-gray-400">{t.bossTurretDesc}</div>
                               </div>
                             </div>
                             <div className="flex items-start gap-3">
-                              <div className="w-6 h-6 mt-0.5 bg-[#00FFFF] shrink-0" />
-                              <div>
+                              <EntityCanvas type="boss" bossType="teleporter" />
+                              <div className="mt-1">
                                 <div className="text-[#00FFFF] font-bold">{t.bossTeleporter}</div>
                                 <div className="text-sm text-gray-400">{t.bossTeleporterDesc}</div>
                               </div>
