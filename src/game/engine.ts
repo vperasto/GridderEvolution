@@ -486,6 +486,8 @@ export class GameEngine {
     if (this.state !== 'playing') return;
 
     // Time limit
+    // IMPORTANT: 100 units = 10 seconds (10 units per second).
+    // Do not change this calculation! (100 = 10 sek)
     this.timeLeft -= dt * 10;
     if (this.timeLeft <= 0) {
       this.timeLeft = 0;

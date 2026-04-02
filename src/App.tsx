@@ -266,6 +266,22 @@ export default function App() {
   }, [gameState]);
 
   useEffect(() => {
+    // Prevent default touchmove to stop scrolling on tablet/mobile
+    const preventScroll = (e: TouchEvent) => {
+      // Only prevent scroll if we are playing or in title screen, 
+      // but allow scrolling in info/highscores modals
+      if (!showInfo && !showHighScores && !isSettingsOpen) {
+        e.preventDefault();
+      }
+    };
+
+    document.addEventListener('touchmove', preventScroll, { passive: false });
+    return () => {
+      document.removeEventListener('touchmove', preventScroll);
+    };
+  }, [showInfo, showHighScores, isSettingsOpen]);
+
+  useEffect(() => {
     if (gameState === 'title') {
       audio.stopMusic();
       audio.startMusic(false, 1); // Play menu music (index 1)
