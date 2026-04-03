@@ -570,6 +570,12 @@ export default function App() {
                 <button onClick={() => setColorblind(!colorblind)} className={`${colorblind ? 'text-[#00CC55]' : 'text-[#0088FF] hover:text-white'} transition-colors`} title={t.colorblind}>
                   <Eye size={20} className="md:w-6 md:h-6" />
                 </button>
+                <button onClick={() => {
+                  audio.init();
+                  audio.startMusic(false);
+                }} className="text-[#00CC55] hover:text-white transition-colors" title="Force Play Music">
+                  <Play size={20} className="md:w-6 md:h-6" />
+                </button>
                 <button onClick={toggleMute} className="text-[#0088FF] hover:text-white transition-colors" title="Mute Music">
                   {musicMuted ? <VolumeX size={20} className="md:w-6 md:h-6" /> : <Volume2 size={20} className="md:w-6 md:h-6" />}
                 </button>
