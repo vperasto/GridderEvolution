@@ -185,6 +185,7 @@ export default function App() {
   
   const [isPortrait, setIsPortrait] = useState(window.innerHeight > window.innerWidth);
   const [dismissPortraitWarning, setDismissPortraitWarning] = useState(false);
+
   const [showHighScores, setShowHighScores] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
   const [infoTab, setInfoTab] = useState<'about' | 'player' | 'enemies' | 'perks' | 'test'>('about');

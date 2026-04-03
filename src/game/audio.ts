@@ -13,8 +13,8 @@ export class AudioEngine {
   public get musicVolume() { return this._musicVolume; }
   public set musicVolume(v: number) {
     this._musicVolume = v;
-    if (this.currentMusic && !this.fadeInterval) {
-      this.currentMusic.volume = v;
+    if (this.musicGain && !this.fadeInterval) {
+      this.musicGain.gain.value = this._musicMuted ? 0 : v;
     }
   }
 
@@ -22,30 +22,60 @@ export class AudioEngine {
   public get musicMuted() { return this._musicMuted; }
   public set musicMuted(v: boolean) {
     this._musicMuted = v;
-    if (this.bgMusic) this.bgMusic.muted = v;
-    if (this.bossMusic) this.bossMusic.muted = v;
+    if (this.musicGain) {
+      this.musicGain.gain.value = v ? 0 : this._musicVolume;
+    }
   }
+
+  public getCurrentTime(): number {
+    return this.currentMusic ? this.currentMusic.currentTime : 0;
+  }
+
+  private bgMusicSource: MediaElementAudioSourceNode | null = null;
+  private bossMusicSource: MediaElementAudioSourceNode | null = null;
+  private musicGain: GainNode | null = null;
 
   init() {
     if (!this.ctx) {
       this.ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
       this.enabled = true;
       
+      this.musicGain = this.ctx.createGain();
+      this.musicGain.gain.value = this._musicVolume;
+      this.musicGain.connect(this.ctx.destination);
+
       this.bgMusic = new Audio(bgMusicUrl);
       this.bgMusic.loop = true;
-      this.bgMusic.muted = this._musicMuted;
       this.bgMusic.preload = 'auto';
+      this.bgMusic.crossOrigin = 'anonymous';
+      this.bgMusicSource = this.ctx.createMediaElementSource(this.bgMusic);
+      this.bgMusicSource.connect(this.musicGain);
       this.bgMusic.load();
 
       this.bossMusic = new Audio(bossMusicUrl);
       this.bossMusic.loop = true;
-      this.bossMusic.muted = this._musicMuted;
       this.bossMusic.preload = 'auto';
+      this.bossMusic.crossOrigin = 'anonymous';
+      this.bossMusicSource = this.ctx.createMediaElementSource(this.bossMusic);
+      this.bossMusicSource.connect(this.musicGain);
       this.bossMusic.load();
     }
     if (this.ctx.state === 'suspended') {
       this.ctx.resume();
     }
+
+    // Add global interaction listener to resume music if it was blocked
+    const resumeMusic = () => {
+      if (this.ctx && this.ctx.state === 'suspended') {
+        this.ctx.resume();
+      }
+      if (this.currentMusic && this.currentMusic.paused && this.enabled && !this._musicMuted) {
+        this.currentMusic.play().catch(() => {});
+      }
+    };
+    window.addEventListener('click', resumeMusic);
+    window.addEventListener('touchstart', resumeMusic);
+    window.addEventListener('keydown', resumeMusic);
   }
 
   playTone(freq: number, type: OscillatorType, duration: number, vol = 0.1) {
@@ -363,14 +393,16 @@ export class AudioEngine {
   // Advanced Music Engine Data removed for future mp3 music
   
   startMusic(isBoss: boolean = false, forceTrackIdx?: number) {
+    console.log(`startMusic called. isBoss: ${isBoss}, enabled: ${this.enabled}`);
     if (!this.enabled || !this.bgMusic || !this.bossMusic) return;
 
     const targetMusic = isBoss ? this.bossMusic : this.bgMusic;
 
     if (this.currentMusic === targetMusic) {
+      console.log(`Already playing target music. paused: ${this.currentMusic.paused}`);
       // Already playing the correct track
       if (this.currentMusic.paused) {
-        this.currentMusic.volume = this._musicVolume;
+        if (this.musicGain) this.musicGain.gain.value = this._musicMuted ? 0 : this._musicVolume;
         const playPromise = this.currentMusic.play();
         if (playPromise !== undefined) {
           playPromise.catch(e => console.warn("Music play blocked by browser:", e));
@@ -387,14 +419,17 @@ export class AudioEngine {
     const previousMusic = this.currentMusic;
     this.currentMusic = targetMusic;
     
-    // Start new track at 0 volume
-    this.currentMusic.volume = 0;
+    console.log(`Starting new track. Volume set to 0.01, calling play()`);
+    // Start new track
+    this.currentMusic.volume = 1;
+    if (this.musicGain) this.musicGain.gain.value = 0.01;
+    
     const playPromise = this.currentMusic.play();
     if (playPromise !== undefined) {
-      playPromise.catch(e => {
+      playPromise.then(() => console.log("Music play started successfully")).catch(e => {
         console.warn("Music play blocked by browser:", e);
         // If play is blocked, ensure volume is restored so it plays if unblocked later
-        if (this.currentMusic) this.currentMusic.volume = this._musicVolume;
+        if (this.musicGain) this.musicGain.gain.value = this._musicMuted ? 0 : this._musicVolume;
       });
     }
 
@@ -407,25 +442,21 @@ export class AudioEngine {
       currentStep++;
       const progress = currentStep / steps;
       
-      // Fade out previous
-      if (previousMusic) {
-        previousMusic.volume = Math.max(0, this._musicVolume * (1 - progress));
-      }
-      
       // Fade in new
-      if (this.currentMusic) {
-        this.currentMusic.volume = Math.min(this._musicVolume, this._musicVolume * progress);
+      if (this.musicGain) {
+        this.musicGain.gain.value = this._musicMuted ? 0 : Math.min(this._musicVolume, this._musicVolume * progress);
       }
 
       if (currentStep >= steps) {
+        console.log(`Fade complete. Final volume: ${this._musicVolume}`);
         if (this.fadeInterval) clearInterval(this.fadeInterval);
         this.fadeInterval = null;
         if (previousMusic) {
           previousMusic.pause();
           previousMusic.currentTime = 0;
         }
-        if (this.currentMusic) {
-           this.currentMusic.volume = this._musicVolume;
+        if (this.musicGain) {
+           this.musicGain.gain.value = this._musicMuted ? 0 : this._musicVolume;
         }
       }
     }, stepTime);
