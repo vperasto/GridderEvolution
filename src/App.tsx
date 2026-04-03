@@ -191,6 +191,14 @@ export default function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   useEffect(() => {
+    // Preload background images
+    const img1 = new Image();
+    img1.src = menuBgImg;
+    const img2 = new Image();
+    img2.src = gameOverImg;
+  }, []);
+
+  useEffect(() => {
     const handleResize = () => {
       setIsPortrait(window.innerHeight > window.innerWidth);
     };
@@ -663,7 +671,7 @@ export default function App() {
                     <h2 className="text-xl md:text-3xl text-gray-300 font-bold">{t.infoTitle}</h2>
                     <button 
                       onClick={() => setShowInfo(false)}
-                      className="text-[#FF7777] hover:text-white text-3xl md:text-4xl font-bold leading-none"
+                      className="text-[#FF7777] hover:text-white text-3xl md:text-4xl font-bold leading-none p-2 -mr-2 -mt-2"
                     >
                       &times;
                     </button>
@@ -898,7 +906,7 @@ export default function App() {
                     </div>
                     <button 
                       onClick={() => setShowHighScores(false)}
-                      className="text-[#FF7777] hover:text-white text-3xl font-bold leading-none self-start"
+                      className="text-[#FF7777] hover:text-white text-3xl font-bold leading-none self-start p-2 -mr-2 -mt-2"
                     >
                       &times;
                     </button>

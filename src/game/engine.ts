@@ -177,27 +177,7 @@ export class GameEngine {
   init() {
     this.state = 'title';
     if (this.onStateChange) this.onStateChange(this.state);
-    
-    // Spawn title bosses
     this.enemies = [];
-    const types = ['classic', 'dasher', 'splitter', 'turret', 'teleporter', 'weaver'];
-    for (let i = 0; i < 3; i++) {
-      this.enemies.push({
-        x: Math.random() * (this.width / this.gridSize),
-        y: Math.random() * (this.height / this.gridSize),
-        startX: 0, startY: 0,
-        type: 'boss',
-        bossType: types[Math.floor(Math.random() * types.length)] as any,
-        bossState: 'moving',
-        dir: 'idle',
-        speed: 2 + Math.random() * 2,
-        state: 'moving',
-        freezeTimer: 0,
-        vx: (Math.random() - 0.5) * 4,
-        vy: (Math.random() - 0.5) * 4,
-        size: 15 + Math.random() * 10
-      });
-    }
   }
 
   togglePause() {
@@ -397,6 +377,7 @@ export class GameEngine {
       if (i % 2 === 1) { ex = 0; ey = rows; }
       if (i % 3 === 2) { ex = cols; ey = 0; }
       
+      const type = (this.level > 2 && Math.random() > 0.7) ? 'stalker' : 'spark';
       this.enemies.push({
         x: ex, y: ey, 
         startX: ex, startY: ey,
@@ -464,14 +445,6 @@ export class GameEngine {
   update(dt: number) {
     if (this.paused) return;
     if (this.state === 'title') {
-      for (const enemy of this.enemies) {
-        enemy.x += (enemy.vx || 0) * dt;
-        enemy.y += (enemy.vy || 0) * dt;
-        if (enemy.x < 0) { enemy.x = 0; enemy.vx = Math.abs(enemy.vx!); }
-        if (enemy.x > this.width / this.gridSize) { enemy.x = this.width / this.gridSize; enemy.vx = -Math.abs(enemy.vx!); }
-        if (enemy.y < 0) { enemy.y = 0; enemy.vy = Math.abs(enemy.vy!); }
-        if (enemy.y > this.height / this.gridSize) { enemy.y = this.height / this.gridSize; enemy.vy = -Math.abs(enemy.vy!); }
-      }
       return;
     }
     if (this.state === 'countdown') {
@@ -1265,9 +1238,6 @@ export class GameEngine {
     ctx.clearRect(0, 0, width, height);
 
     if (this.state === 'title') {
-      ctx.save();
-      this.drawEnemies(ctx, gridSize);
-      ctx.restore();
       return;
     }
 
